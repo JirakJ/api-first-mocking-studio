@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.18] - 2026-02-26
+### Added
+- **Manage Environments Dialog:** Added a dedicated settings window to create, rename, and delete environments, as well as manually edit their specific key-value variables. Accessible via the gear icon next to the environment selector.
+
 ## [2026.2.17] - 2026-02-26
 ### Added
 - **Environments & Variables Management:** Introduced the ability to define distinct environments (e.g., Dev, Prod) with scoped variables.
