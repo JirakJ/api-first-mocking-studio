@@ -4,7 +4,7 @@
     <vendor>JetBrains Plugin Developer</vendor>
     <pluginIcon>pluginIcon.svg</pluginIcon>
 
-    <product-descriptor code="PAPIFIRSTMOCKIN" release-date="20260226" release-version="20260226" optional="true"/>
+    <product-descriptor code="PAPIFIRSTMOCKIN" release-date="20260226" release-version="20262" optional="true"/>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>

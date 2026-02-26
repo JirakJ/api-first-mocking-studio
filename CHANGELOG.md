@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.13] - 2026-02-26
+### Fixed
+- Changed `<release-version>` in `plugin.xml` to `20262` to properly match the `2026.2.*` plugin versioning scheme for the JetBrains Marketplace.
+
 ## [2026.2.12] - 2026-02-26
 ### Fixed
 - Correctly configured `pluginIcon` directly in `plugin.xml` and removed deprecated `instrumentationTools()`.
