@@ -32,7 +32,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     
     // Top Panel Components
     private val methodCombo = ComboBox(arrayOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"))
-    private val urlField = JBTextField("https://postman-echo.com/get")
+    private val urlField = JBTextField("https://httpbin.org/get")
     private val sendButton = JButton("Send")
     
     // Request Components
