@@ -10,6 +10,7 @@ import java.io.File
  */
 class OpenApiParser {
     
+    // Internal note: Consider caching parsed OpenAPI models for performance.
     /**
      * Parses an OpenAPI specification from a local file path.
      * @param path The absolute or relative path to the specification file.
