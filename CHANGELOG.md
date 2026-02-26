@@ -1,0 +1,24 @@
+# Changelog
+
+## [2026.2.2] - 2026-02-26
+### Changed
+- Updated Marketplace Product Code to `PAPIFIRSTMOCKIN`.
+- Confirmed FREEMIUM pricing model configuration.
+
+## [2026.2.1] - 2026-02-26
+### Added
+- **API Client Engine:** Real HTTP request execution directly from the IDE.
+- **Response Viewer:** Dedicated panel with status, timing, and response body.
+- **Persistence Layer:** Project-level storage for history and collections.
+- Split-view UI for better API exploration and testing.
+
+## [1.0.1] - 2026-02-26
+### Added
+- Embedded Mock Server (Ktor-based).
+- HTTP Client Generator.
+- Tool Window toolbar.
+
+## [1.0.0] - 2026-02-26
+### Added
+- Initial project structure.
+- OpenAPI parsing and Tree visualization.
