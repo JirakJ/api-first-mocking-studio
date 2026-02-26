@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.7] - 2026-02-26
+### Changed
+- Re-attempting build and publish with new Marketplace token.
+
 ## [2026.2.6] - 2026-02-26
 ### Changed
 - Re-attempting publish with new Marketplace token.
