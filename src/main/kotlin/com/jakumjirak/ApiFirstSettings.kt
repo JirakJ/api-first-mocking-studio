@@ -37,6 +37,7 @@ class ApiFirstSettings : PersistentStateComponent<ApiFirstSettings> {
         var url: String = "",
         var body: String? = null,
         var headers: MutableMap<String, String> = mutableMapOf(),
+        var preRequestScript: String? = null,
         var postResponseScript: String? = null,
         var authType: String = "None",
         var authParams: MutableMap<String, String> = mutableMapOf()
