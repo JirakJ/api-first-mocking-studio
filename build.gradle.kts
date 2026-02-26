@@ -1,11 +1,11 @@
 plugins {
     id("java")
     kotlin("jvm") version "1.9.20"
-    id("org.jetbrains.intellij.platform") version "2.0.0-beta6"
+    id("org.jetbrains.intellij.platform") version "2.11.0"
 }
 
 group = "com.jakumjirak"
-version = "2026.2.26"
+version = providers.gradleProperty("pluginVersion").get()
 
 repositories {
     mavenCentral()

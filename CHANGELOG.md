@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026.2.10] - 2026-02-26
+### Fixed
+- Updated Gradle version to 8.13 to support IntelliJ Platform Gradle Plugin 2.11.0.
+
+## [2026.2.9] - 2026-02-26
+### Fixed
+- Ensured correct versioning in build artifacts by updating build.gradle.kts and IntelliJ Platform Gradle Plugin.
+
 ## [2026.2.8] - 2026-02-26
 ### Fixed
 - Ensured correct versioning in build artifacts (fixed reference to old sandbox version).
