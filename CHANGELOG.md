@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.22] - 2026-02-26
+### Added
+- **Authentication Tab:** Introduced a dedicated UI for managing request authentication. Supports Bearer Token, Basic Auth (Username/Password), and API Keys.
+- Authentication parameters now support variable resolution, allowing for dynamic tokens from environments.
+
 ## [2026.2.21] - 2026-02-26
 ### Added
 - **Request Collections:** Introduced a new "Collections" tab in the sidebar. Users can now group and organize their saved requests into custom-named collections.
