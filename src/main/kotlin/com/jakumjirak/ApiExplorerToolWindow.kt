@@ -39,6 +39,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val methodCombo = ComboBox(arrayOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"))
     private val urlField = JBTextField("https://httpbin.org/get")
     private val sendButton = JButton("Send")
+    private val envCombo = ComboBox<String>()
     
     // Request Components
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
@@ -62,10 +63,21 @@ class ApiExplorerToolWindow(private val project: Project) {
     }
 
     private fun setupUI() {
+        val settings = ApiFirstSettings.getInstance(project)
+        
+        // Populate Environment Combo
+        updateEnvCombo(settings)
+        
         // --- Top Bar ---
         val topBar = JPanel(BorderLayout(5, 0)).apply {
             border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
-            add(methodCombo, BorderLayout.WEST)
+            
+            val leftControls = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
+                add(envCombo)
+                add(methodCombo)
+            }
+            
+            add(leftControls, BorderLayout.WEST)
             add(urlField, BorderLayout.CENTER)
             add(sendButton, BorderLayout.EAST)
         }
@@ -129,7 +141,26 @@ class ApiExplorerToolWindow(private val project: Project) {
         panel.add(splitter, BorderLayout.CENTER)
     }
 
+    private fun updateEnvCombo(settings: ApiFirstSettings) {
+        envCombo.removeAllItems()
+        envCombo.addItem("No Environment")
+        settings.environments.forEach { envCombo.addItem(it.name) }
+        
+        if (settings.activeEnvironmentName != null && settings.environments.any { it.name == settings.activeEnvironmentName }) {
+            envCombo.selectedItem = settings.activeEnvironmentName
+        } else {
+            envCombo.selectedIndex = 0
+        }
+    }
+
     private fun setupListeners() {
+        val settings = ApiFirstSettings.getInstance(project)
+        
+        envCombo.addActionListener {
+            val selected = envCombo.selectedItem as? String
+            settings.activeEnvironmentName = if (selected == "No Environment") null else selected
+        }
+
         sendButton.addActionListener {
             executeRequest()
         }
@@ -188,12 +219,12 @@ class ApiExplorerToolWindow(private val project: Project) {
         sendButton.isEnabled = false
         
         val settings = ApiFirstSettings.getInstance(project)
-        val variables = settings.variables
+        val activeVariables = settings.getActiveVariables()
 
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 val request = ApiRequest(method, url, headers, body)
-                val response = executor.execute(request, variables)
+                val response = executor.execute(request, activeVariables)
                 
                 // Execute Post-Response Script
                 if (script != null) {
