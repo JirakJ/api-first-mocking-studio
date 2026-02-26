@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026.2.27] - 2026-02-26
+### Added
+- **Extended Body Support:** Introduced support for multiple body types in requests.
+- **Multipart/Form-Data:** Added a dedicated table-based UI to send form parameters.
+- **x-www-form-urlencoded:** Full support for form-encoded bodies with automatic URL encoding.
+- **Body Type Switcher:** Easily switch between None, Raw, and Form types directly in the Body tab.
+
 ## [2026.2.26] - 2026-02-26
 ### Added
 - **Code Snippet Generation:** Introduced a new "Snippets" tab in the request panel. Automatically generates code for various languages and tools based on the current request configuration.

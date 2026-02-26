@@ -6,12 +6,18 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import java.util.*
+import java.nio.file.Paths
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 data class ApiRequest(
     val method: String,
     val url: String,
     val headers: Map<String, String> = emptyMap(),
+    val bodyType: String = "Raw",
     val body: String? = null,
+    val formData: List<ApiFirstSettings.FormDataParam> = emptyList(),
     val authType: String = "None",
     val authParams: Map<String, String> = emptyMap()
 )
@@ -44,21 +50,46 @@ class ApiRequestExecutor {
     fun execute(request: ApiRequest, variables: Map<String, String>): ApiResponse {
         val resolver = VariableResolver(variables)
         val resolvedUrl = resolver.resolve(request.url) ?: request.url
-        val resolvedBody = resolver.resolve(request.body)
         
         val startTime = System.currentTimeMillis()
-        
-        val builder = HttpRequest.newBuilder()
-            .uri(URI.create(resolvedUrl))
-            .method(request.method, resolvedBody?.let { HttpRequest.BodyPublishers.ofString(it) } ?: HttpRequest.BodyPublishers.noBody())
+        val builder = HttpRequest.newBuilder().uri(URI.create(resolvedUrl))
 
-        // Apply regular headers
-        for ((k, v) in request.headers) {
-            val resolvedValue = resolver.resolve(v) ?: v
-            builder.header(k, resolvedValue) 
+        // Build Body based on type
+        val bodyPublisher = when (request.bodyType) {
+            "Raw" -> {
+                val resolvedBody = resolver.resolve(request.body)
+                if (resolvedBody != null) HttpRequest.BodyPublishers.ofString(resolvedBody) 
+                else HttpRequest.BodyPublishers.noBody()
+            }
+            "x-www-form-urlencoded" -> {
+                val form = request.formData.joinToString("&") { 
+                    "${URLEncoder.encode(it.key, StandardCharsets.UTF_8)}=${URLEncoder.encode(resolver.resolve(it.value) ?: it.value, StandardCharsets.UTF_8)}" 
+                }
+                builder.header("Content-Type", "application/x-www-form-urlencoded")
+                HttpRequest.BodyPublishers.ofString(form)
+            }
+            "Form-Data" -> {
+                // Simplified multipart (mostly text support for now)
+                val boundary = "---" + UUID.randomUUID().toString()
+                builder.header("Content-Type", "multipart/form-data; boundary=$boundary")
+                val sb = StringBuilder()
+                request.formData.forEach { param ->
+                    sb.append("--$boundary\r\n")
+                    sb.append("Content-Disposition: form-data; name=\"${param.key}\"\r\n\r\n")
+                    sb.append("${resolver.resolve(param.value) ?: param.value}\r\n")
+                }
+                sb.append("--$boundary--\r\n")
+                HttpRequest.BodyPublishers.ofString(sb.toString())
+            }
+            else -> HttpRequest.BodyPublishers.noBody()
         }
 
-        // Apply Authentication
+        builder.method(request.method, bodyPublisher)
+
+        for ((k, v) in request.headers) {
+            builder.header(k, resolver.resolve(v) ?: v) 
+        }
+
         applyAuth(builder, request, resolver)
 
         val response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString())
@@ -87,11 +118,7 @@ class ApiRequestExecutor {
             "API Key" -> {
                 val key = resolver.resolve(request.authParams["key"]) ?: ""
                 val value = resolver.resolve(request.authParams["value"]) ?: ""
-                val addTo = request.authParams["addTo"] ?: "Header"
-                if (key.isNotEmpty()) {
-                    if (addTo == "Header") builder.header(key, value)
-                    // Note: Query param API Key would require modifying the URL before builder creation
-                }
+                if (key.isNotEmpty()) builder.header(key, value)
             }
         }
     }
