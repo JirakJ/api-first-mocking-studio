@@ -12,12 +12,17 @@ import com.intellij.ui.components.JBTabbedPane
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.components.JBTextArea
 import com.intellij.ui.content.ContentFactory
+import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonParser
+import com.google.gson.JsonSyntaxException
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.BorderFactory
+import javax.swing.table.DefaultTableModel
 
 class ApiExplorerToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
@@ -36,7 +41,8 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val sendButton = JButton("Send")
     
     // Request Components
-    private val reqHeadersArea = JBTextArea("Accept: application/json\nContent-Type: application/json")
+    private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
+    private val headersTable = JBTable(headersTableModel)
     private val reqBodyArea = JBTextArea()
     private val reqScriptArea = JBTextArea("// Example: auth_token=$.token")
     private val reqTabs = JBTabbedPane()
@@ -64,9 +70,31 @@ class ApiExplorerToolWindow(private val project: Project) {
             add(sendButton, BorderLayout.EAST)
         }
 
+        // Initialize headers with some defaults and an empty row for new input
+        headersTableModel.addRow(arrayOf("Accept", "application/json"))
+        headersTableModel.addRow(arrayOf("Content-Type", "application/json"))
+        headersTableModel.addRow(arrayOf("", ""))
+        
+        // Add listener to automatically add a new row when the last row is edited
+        headersTableModel.addTableModelListener { e ->
+            if (e.type == javax.swing.event.TableModelEvent.UPDATE) {
+                val row = e.firstRow
+                val lastRow = headersTableModel.rowCount - 1
+                if (row == lastRow) {
+                    val key = headersTableModel.getValueAt(lastRow, 0) as? String ?: ""
+                    val value = headersTableModel.getValueAt(lastRow, 1) as? String ?: ""
+                    if (key.isNotEmpty() || value.isNotEmpty()) {
+                        ApplicationManager.getApplication().invokeLater {
+                            headersTableModel.addRow(arrayOf("", ""))
+                        }
+                    }
+                }
+            }
+        }
+
         // --- Request Panel ---
         reqTabs.addTab("Body", JBScrollPane(reqBodyArea))
-        reqTabs.addTab("Headers", JBScrollPane(reqHeadersArea))
+        reqTabs.addTab("Headers", JBScrollPane(headersTable))
         reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
 
         val requestPanel = JPanel(BorderLayout()).apply {
@@ -117,18 +145,33 @@ class ApiExplorerToolWindow(private val project: Project) {
         }
     }
 
-    private fun parseHeaders(headerText: String): Map<String, String> {
+    private fun getHeadersFromTable(): Map<String, String> {
         val map = mutableMapOf<String, String>()
-        headerText.lines().forEach { line ->
-            if (line.contains(":")) {
-                val key = line.substringBefore(":").trim()
-                val value = line.substringAfter(":").trim()
-                if (key.isNotEmpty()) {
-                    map[key] = value
-                }
+        // Stop cell editing if currently editing so the value is saved to the model
+        if (headersTable.isEditing) {
+            headersTable.cellEditor.stopCellEditing()
+        }
+        for (i in 0 until headersTableModel.rowCount) {
+            val key = headersTableModel.getValueAt(i, 0) as? String ?: ""
+            val value = headersTableModel.getValueAt(i, 1) as? String ?: ""
+            if (key.isNotBlank()) {
+                map[key.trim()] = value.trim()
             }
         }
         return map
+    }
+    
+    private fun prettyPrintJson(jsonStr: String): String {
+        return try {
+            val jsonElement = JsonParser.parseString(jsonStr)
+            val gson = GsonBuilder().setPrettyPrinting().create()
+            gson.toJson(jsonElement)
+        } catch (e: JsonSyntaxException) {
+            // If it's not valid JSON, return original string
+            jsonStr
+        } catch (e: Exception) {
+            jsonStr
+        }
     }
 
     private fun executeRequest() {
@@ -137,7 +180,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         
         if (url.isEmpty()) return
         
-        val headers = parseHeaders(reqHeadersArea.text)
+        val headers = getHeadersFromTable()
         val body = reqBodyArea.text.takeIf { it.isNotBlank() }
         val script = reqScriptArea.text.takeIf { it.isNotBlank() }
         
@@ -160,9 +203,13 @@ class ApiExplorerToolWindow(private val project: Project) {
                 val formattedHeaders = response.headers.entries.joinToString("\n") { 
                     "${it.key}: ${it.value.joinToString(", ")}" 
                 }
+                
+                val prettyBody = prettyPrintJson(response.body)
 
                 ApplicationManager.getApplication().invokeLater {
-                    responseArea.text = response.body
+                    responseArea.text = prettyBody
+                    // Scroll to top
+                    responseArea.caretPosition = 0
                     resHeadersArea.text = formattedHeaders
                     statusLabel.text = "Status: ${response.statusCode} | Time: ${response.durationMs}ms"
                     sendButton.isEnabled = true

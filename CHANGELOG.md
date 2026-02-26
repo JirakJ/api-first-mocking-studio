@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.16] - 2026-02-26
+### Added
+- JSON responses are now automatically pretty-printed in the response body tab.
+- Request headers are now entered via a dynamic Key-Value table for better UX, matching industry standard API clients.
+
 ## [2026.2.15] - 2026-02-26
 ### Changed
 - Removed all explicit references to competing products from plugin descriptors and UI placeholders to comply with branding guidelines.
