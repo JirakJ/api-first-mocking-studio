@@ -1,8 +1,12 @@
 # Changelog
 
+## [2026.2.15] - 2026-02-26
+### Changed
+- Removed all explicit references to competing products from plugin descriptors and UI placeholders to comply with branding guidelines.
+
 ## [2026.2.14] - 2026-02-26
 ### Changed
-- Complete UI Rewrite: Transformed the Tool Window into a full-fledged, Postman-like REST client interface.
+- Complete UI Rewrite: Transformed the Tool Window into a full-fledged, advanced REST client interface.
 - Added explicit method dropdown, URL bar, Request Tabs (Body, Headers, Scripts), and Response Tabs (Body, Headers).
 - Improved request execution feedback and error handling.
 

@@ -52,7 +52,7 @@ intellijPlatform {
         }
         description = """
             Native API Client and Mocking Server for JetBrains IDEs.
-            Fully replaces external tools like Postman and Insomnia.
+            Fully replaces external API clients directly within your IDE.
             Supports OpenAPI 3.0/3.1, Swagger 2.0, and embedded Mock Server with dynamic data generation.
         """.trimIndent()
     }
