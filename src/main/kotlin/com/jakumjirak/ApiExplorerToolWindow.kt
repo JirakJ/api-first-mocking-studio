@@ -13,6 +13,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.components.JBTabbedPane
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.components.JBTextArea
+import com.intellij.ui.components.JBList
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
@@ -25,6 +26,7 @@ import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.BorderFactory
 import javax.swing.Box
+import javax.swing.DefaultListModel
 import javax.swing.table.DefaultTableModel
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
@@ -40,6 +42,11 @@ class ApiExplorerToolWindowFactory : ToolWindowFactory {
 
 class ApiExplorerToolWindow(private val project: Project) {
     private val panel = JPanel(BorderLayout())
+    
+    // Sidebar Components
+    private val historyListModel = DefaultListModel<String>()
+    private val historyList = JBList(historyListModel)
+    private val savedRequestsList = mutableListOf<ApiFirstSettings.SavedRequest>()
     
     // Top Panel Components
     private val methodCombo = ComboBox(arrayOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"))
@@ -71,6 +78,12 @@ class ApiExplorerToolWindow(private val project: Project) {
 
     private fun setupUI() {
         val settings = ApiFirstSettings.getInstance(project)
+        
+        // Load History
+        settings.history.reversed().forEach { req -> 
+            savedRequestsList.add(req)
+            historyListModel.addElement("${req.method} ${req.url}")
+        }
         
         // Populate Environment Combo
         updateEnvCombo(settings)
@@ -141,13 +154,28 @@ class ApiExplorerToolWindow(private val project: Project) {
             add(statusPanel, BorderLayout.SOUTH)
         }
 
-        // --- Main Splitter ---
-        val splitter = OnePixelSplitter(true, 0.5f).apply {
+        // --- Editor Splitter (Request/Response) ---
+        val editorSplitter = OnePixelSplitter(true, 0.5f).apply {
             firstComponent = requestPanel
             secondComponent = responsePanel
         }
 
-        panel.add(splitter, BorderLayout.CENTER)
+        // --- Sidebar Panel ---
+        val sidebarPanel = JPanel(BorderLayout()).apply {
+            val titleLabel = JBLabel("History").apply {
+                border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
+            }
+            add(titleLabel, BorderLayout.NORTH)
+            add(JBScrollPane(historyList), BorderLayout.CENTER)
+        }
+
+        // --- Main Splitter (Sidebar/Editor) ---
+        val mainSplitter = OnePixelSplitter(false, 0.2f).apply {
+            firstComponent = sidebarPanel
+            secondComponent = editorSplitter
+        }
+
+        panel.add(mainSplitter, BorderLayout.CENTER)
     }
 
     private fun updateEnvCombo(settings: ApiFirstSettings) {
@@ -174,6 +202,25 @@ class ApiExplorerToolWindow(private val project: Project) {
             val dialog = ManageEnvironmentsDialog(project, settings)
             if (dialog.showAndGet()) {
                 updateEnvCombo(settings)
+            }
+        }
+
+        historyList.addListSelectionListener { e ->
+            if (!e.valueIsAdjusting) {
+                val index = historyList.selectedIndex
+                if (index in 0 until savedRequestsList.size) {
+                    val req = savedRequestsList[index]
+                    methodCombo.selectedItem = req.method
+                    urlField.text = req.url
+                    reqBodyArea.text = req.body ?: ""
+                    reqScriptArea.text = req.postResponseScript ?: ""
+                    
+                    headersTableModel.rowCount = 0
+                    req.headers.forEach { (k, v) ->
+                        headersTableModel.addRow(arrayOf(k, v))
+                    }
+                    headersTableModel.addRow(arrayOf("", ""))
+                }
             }
         }
 
@@ -236,6 +283,19 @@ class ApiExplorerToolWindow(private val project: Project) {
         
         val settings = ApiFirstSettings.getInstance(project)
         val activeVariables = settings.getActiveVariables()
+        
+        // Save to History
+        val savedReq = ApiFirstSettings.SavedRequest(
+            name = "$method $url",
+            method = method,
+            url = url,
+            body = body,
+            headers = headers.toMutableMap(),
+            postResponseScript = script
+        )
+        settings.history.add(savedReq)
+        savedRequestsList.add(0, savedReq) // Add to top of local list
+        historyListModel.add(0, "${savedReq.method} ${savedReq.url}") // Add to top of UI list
 
         ApplicationManager.getApplication().executeOnPooledThread {
             try {

@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.19] - 2026-02-26
+### Added
+- **Request History Sidebar:** Implemented a new left sidebar that automatically tracks and displays previously sent requests.
+- Users can click on any request in the history to instantly reload its method, URL, headers, and body into the current editor.
+
 ## [2026.2.18] - 2026-02-26
 ### Added
 - **Manage Environments Dialog:** Added a dedicated settings window to create, rename, and delete environments, as well as manually edit their specific key-value variables. Accessible via the gear icon next to the environment selector.
