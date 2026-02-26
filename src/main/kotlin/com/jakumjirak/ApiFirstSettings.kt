@@ -8,7 +8,21 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 class ApiFirstSettings : PersistentStateComponent<ApiFirstSettings> {
     
     var history: MutableList<SavedRequest> = mutableListOf()
+    
+    // Global variables (fallback if not in active environment)
     var variables: MutableMap<String, String> = mutableMapOf()
+    
+    var environments: MutableList<Environment> = mutableListOf(
+        Environment("Dev", mutableMapOf("base_url" to "http://localhost:8080")),
+        Environment("Prod", mutableMapOf("base_url" to "https://api.example.com"))
+    )
+    
+    var activeEnvironmentName: String? = null
+
+    data class Environment(
+        var name: String = "",
+        var variables: MutableMap<String, String> = mutableMapOf()
+    )
 
     data class SavedRequest(
         var name: String = "",
@@ -23,6 +37,26 @@ class ApiFirstSettings : PersistentStateComponent<ApiFirstSettings> {
 
     override fun loadState(state: ApiFirstSettings) {
         XmlSerializerUtil.copyBean(state, this)
+    }
+
+    fun getActiveVariables(): Map<String, String> {
+        val merged = mutableMapOf<String, String>()
+        merged.putAll(variables) // Global variables first
+        
+        val activeEnv = environments.find { it.name == activeEnvironmentName }
+        if (activeEnv != null) {
+            merged.putAll(activeEnv.variables) // Active environment overrides globals
+        }
+        return merged
+    }
+
+    fun setVariable(key: String, value: String) {
+        val activeEnv = environments.find { it.name == activeEnvironmentName }
+        if (activeEnv != null) {
+            activeEnv.variables[key] = value
+        } else {
+            variables[key] = value
+        }
     }
 
     companion object {

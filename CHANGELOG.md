@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.2.17] - 2026-02-26
+### Added
+- **Environments & Variables Management:** Introduced the ability to define distinct environments (e.g., Dev, Prod) with scoped variables.
+- An environment selector has been added to the main toolbar.
+- Variable resolution now correctly merges the active environment context with global defaults.
+
 ## [2026.2.16] - 2026-02-26
 ### Added
 - JSON responses are now automatically pretty-printed in the response body tab.

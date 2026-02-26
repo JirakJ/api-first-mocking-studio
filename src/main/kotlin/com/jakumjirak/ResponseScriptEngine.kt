@@ -21,7 +21,7 @@ class ResponseScriptEngine(private val project: Project) {
                 
                 try {
                     val value: Any = JsonPath.read(responseBody, path)
-                    settings.variables[varName] = value.toString()
+                    settings.setVariable(varName, value.toString())
                 } catch (e: Exception) {
                     // Log or handle script error
                 }
