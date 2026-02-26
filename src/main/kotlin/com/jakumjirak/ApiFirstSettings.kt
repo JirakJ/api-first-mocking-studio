@@ -17,11 +17,18 @@ class ApiFirstSettings : PersistentStateComponent<ApiFirstSettings> {
         Environment("Prod", mutableMapOf("base_url" to "https://api.example.com"))
     )
     
+    var collections: MutableList<Collection> = mutableListOf()
+    
     var activeEnvironmentName: String? = null
 
     data class Environment(
         var name: String = "",
         var variables: MutableMap<String, String> = mutableMapOf()
+    )
+
+    data class Collection(
+        var name: String = "",
+        var requests: MutableList<SavedRequest> = mutableListOf()
     )
 
     data class SavedRequest(
