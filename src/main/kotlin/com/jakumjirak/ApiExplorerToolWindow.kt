@@ -1,8 +1,7 @@
 package com.jakumjirak
 
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.actionSystem.AnAction
-import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
@@ -17,10 +16,9 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.JBUI
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonParser
-import com.google.gson.JsonSyntaxException
+import com.google.gson.*
 import java.awt.BorderLayout
+import java.awt.CardLayout
 import java.awt.FlowLayout
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -42,7 +40,7 @@ class ApiExplorerToolWindowFactory : ToolWindowFactory {
 class ApiExplorerToolWindow(private val project: Project) {
     private val panel = JPanel(BorderLayout())
     
-    // Sidebar Components
+    // Sidebar
     private val historyListModel = DefaultListModel<String>()
     private val historyList = JBList(historyListModel)
     private val savedRequestsList = mutableListOf<ApiFirstSettings.SavedRequest>()
@@ -50,7 +48,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val collectionsTreeModel = DefaultTreeModel(collectionsRoot)
     private val collectionsTree = Tree(collectionsTreeModel)
     
-    // Top Panel Components
+    // Top Bar
     private val methodCombo = ComboBox(arrayOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"))
     private val urlField = JBTextField("https://httpbin.org/get")
     private val sendButton = JButton("Send")
@@ -58,41 +56,39 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val manageEnvButton = JButton(AllIcons.General.Settings)
     private val saveToCollectionButton = JButton(AllIcons.Actions.MenuSaveall)
     
-    // Request Components
+    // Request Tabs
     private val paramsTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
     private val paramsTable = JBTable(paramsTableModel)
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
     private val headersTable = JBTable(headersTableModel)
-    
     private val authTypeCombo = ComboBox(arrayOf("None", "Bearer Token", "Basic Auth", "API Key"))
     private val authFieldsPanel = JPanel(VerticalLayout(5))
     private val authFields = mutableMapOf<String, JBTextField>()
     
+    // Body Panel
+    private val bodyTypeCombo = ComboBox(arrayOf("None", "Raw", "Form-Data", "x-www-form-urlencoded"))
+    private val bodyCardLayout = CardLayout()
+    private val bodyCards = JPanel(bodyCardLayout)
+    private val reqBodyArea = JBTextArea()
+    private val formDataTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
+    private val formDataTable = JBTable(formDataTableModel)
+    
     private val assertionsTableModel = DefaultTableModel(arrayOf("Type", "Expected Value"), 0)
     private val assertionsTable = JBTable(assertionsTableModel)
-    
     private val snippetLanguageCombo = ComboBox(arrayOf("cURL", "Python (Requests)", "JavaScript (Fetch)"))
     private val snippetTextArea = JBTextArea()
-    
-    private val reqBodyArea = JBTextArea()
-    private val reqPreScriptArea = JBTextArea("// Example: timestamp={{\$timestamp}}")
-    private val reqScriptArea = JBTextArea("// Example: auth_token=$.token")
+    private val reqPreScriptArea = JBTextArea("// Pre-request logic")
+    private val reqScriptArea = JBTextArea("// Post-response logic")
     private val reqTabs = JBTabbedPane()
     
-    // Response Components
-    private val responseArea = JBTextArea()
-    private val resHeadersArea = JBTextArea()
-    private val testResultsArea = JBTextArea()
+    // Response
+    private val responseArea = JBTextArea(); private val resHeadersArea = JBTextArea(); private val testResultsArea = JBTextArea()
     private val responseTree = Tree(DefaultTreeModel(DefaultMutableTreeNode("Response")))
-    private val resTabs = JBTabbedPane()
     private val statusLabel = JBLabel("Ready")
     
-    private val executor = ApiRequestExecutor()
-    private val preScriptEngine = PreRequestScriptEngine(project)
-    private val scriptEngine = ResponseScriptEngine(project)
-    private val assertionEngine = AssertionEngine()
-    private val jsonTreeBuilder = JsonTreeModelBuilder()
-    private val codeGenerator = CodeGenerator()
+    private val executor = ApiRequestExecutor(); private val preScriptEngine = PreRequestScriptEngine(project)
+    private val scriptEngine = ResponseScriptEngine(project); private val assertionEngine = AssertionEngine()
+    private val jsonTreeBuilder = JsonTreeModelBuilder(); private val codeGenerator = CodeGenerator()
     private var isSyncingParams = false
 
     init { setupUI(); setupListeners(); updateAuthFields(); refreshSnippets() }
@@ -112,51 +108,67 @@ class ApiExplorerToolWindow(private val project: Project) {
 
         headersTableModel.addRow(arrayOf("Accept", "application/json")); headersTableModel.addRow(arrayOf("Content-Type", "application/json")); headersTableModel.addRow(arrayOf("", ""))
         paramsTableModel.addRow(arrayOf("", "")); assertionsTableModel.addRow(arrayOf("Status Code", "200")); assertionsTableModel.addRow(arrayOf("", ""))
+        formDataTableModel.addRow(arrayOf("", ""))
 
-        val authPanel = JPanel(BorderLayout()).apply {
-            border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
-            add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Type: ")); add(authTypeCombo) }, BorderLayout.NORTH)
-            add(authFieldsPanel, BorderLayout.CENTER)
+        // Body Panel Setup
+        bodyCards.add(JPanel(), "None")
+        bodyCards.add(JBScrollPane(reqBodyArea), "Raw")
+        bodyCards.add(JBScrollPane(formDataTable), "Form-Data")
+        bodyCards.add(JBScrollPane(formDataTable), "x-www-form-urlencoded")
+        
+        val bodyPanel = JPanel(BorderLayout()).apply {
+            add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(bodyTypeCombo) }, BorderLayout.NORTH)
+            add(bodyCards, BorderLayout.CENTER)
+        }
+
+        reqTabs.addTab("Params", JBScrollPane(paramsTable)); reqTabs.addTab("Auth", createAuthPanel()); reqTabs.addTab("Pre-Script", JBScrollPane(reqPreScriptArea))
+        reqTabs.addTab("Body", bodyPanel); reqTabs.addTab("Headers", JBScrollPane(headersTable)); reqTabs.addTab("Tests", JBScrollPane(assertionsTable))
+        reqTabs.addTab("Snippets", createSnippetPanel()); reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
+
+        val responsePanel = JBTabbedPane().apply {
+            addTab("Body", JBScrollPane(responseArea)); addTab("Tree", JBScrollPane(responseTree))
+            addTab("Headers", JBScrollPane(resHeadersArea)); addTab("Test Results", JBScrollPane(testResultsArea))
         }
         
-        val snippetPanel = JPanel(BorderLayout()).apply {
-            val top = JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Language: ")); add(snippetLanguageCombo) }
-            add(top, BorderLayout.NORTH)
-            snippetTextArea.isEditable = false
-            snippetTextArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
-            add(JBScrollPane(snippetTextArea), BorderLayout.CENTER)
+        val mainSplitter = OnePixelSplitter(false, 0.2f).apply {
+            val sidebar = JBTabbedPane().apply { addTab("History", JBScrollPane(historyList)); addTab("Collections", createCollectionsPanel(settings)) }
+            firstComponent = sidebar
+            secondComponent = OnePixelSplitter(true, 0.5f).apply {
+                firstComponent = JPanel(BorderLayout()).apply { add(topBar, BorderLayout.NORTH); add(reqTabs, BorderLayout.CENTER) }
+                secondComponent = JPanel(BorderLayout()).apply { add(responsePanel, BorderLayout.CENTER); add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(statusLabel) }, BorderLayout.SOUTH) }
+            }
         }
-
-        reqTabs.addTab("Params", JBScrollPane(paramsTable)); reqTabs.addTab("Auth", authPanel); reqTabs.addTab("Pre-Script", JBScrollPane(reqPreScriptArea))
-        reqTabs.addTab("Body", JBScrollPane(reqBodyArea)); reqTabs.addTab("Headers", JBScrollPane(headersTable)); reqTabs.addTab("Tests", JBScrollPane(assertionsTable))
-        reqTabs.addTab("Snippets", snippetPanel); reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
-
-        val requestPanel = JPanel(BorderLayout()).apply { add(topBar, BorderLayout.NORTH); add(reqTabs, BorderLayout.CENTER) }
+        panel.add(mainSplitter, BorderLayout.CENTER)
         
         responseArea.isEditable = false; resHeadersArea.isEditable = false; testResultsArea.isEditable = false
         responseArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         resHeadersArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         testResultsArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
-        
-        resTabs.addTab("Body", JBScrollPane(responseArea)); resTabs.addTab("Tree", JBScrollPane(responseTree)); resTabs.addTab("Headers", JBScrollPane(resHeadersArea)); resTabs.addTab("Test Results", JBScrollPane(testResultsArea))
+    }
 
-        val responsePanel = JPanel(BorderLayout()).apply { add(resTabs, BorderLayout.CENTER); add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(statusLabel) }, BorderLayout.SOUTH) }
-        val editorSplitter = OnePixelSplitter(true, 0.5f).apply { firstComponent = requestPanel; secondComponent = responsePanel }
-        val sidebarTabs = JBTabbedPane(); sidebarTabs.addTab("History", JBScrollPane(historyList))
-        val collectionsPanel = JPanel(BorderLayout()).apply {
-            add(ToolbarDecorator.createDecorator(collectionsTree).setAddAction {
-                val name = Messages.showInputDialog(project, "Collection Name:", "New", null)
-                if (!name.isNullOrBlank()) { settings.collections.add(ApiFirstSettings.Collection(name)); updateCollectionsTree(settings) }
-            }.setRemoveAction {
-                val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode
-                val userObj = node?.userObject
-                if (userObj is ApiFirstSettings.Collection) settings.collections.remove(userObj)
-                else if (userObj is ApiFirstSettings.SavedRequest) (node.parent as? DefaultMutableTreeNode)?.let { (it.userObject as? ApiFirstSettings.Collection)?.requests?.remove(userObj) }
-                updateCollectionsTree(settings)
-            }.createPanel(), BorderLayout.CENTER)
-        }
-        sidebarTabs.addTab("Collections", collectionsPanel)
-        panel.add(OnePixelSplitter(false, 0.2f).apply { firstComponent = sidebarTabs; secondComponent = editorSplitter }, BorderLayout.CENTER)
+    private fun createAuthPanel() = JPanel(BorderLayout()).apply {
+        border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Type: ")); add(authTypeCombo) }, BorderLayout.NORTH)
+        add(authFieldsPanel, BorderLayout.CENTER)
+    }
+
+    private fun createSnippetPanel() = JPanel(BorderLayout()).apply {
+        add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Language: ")); add(snippetLanguageCombo) }, BorderLayout.NORTH)
+        snippetTextArea.isEditable = false; snippetTextArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
+        add(JBScrollPane(snippetTextArea), BorderLayout.CENTER)
+    }
+
+    private fun createCollectionsPanel(settings: ApiFirstSettings) = JPanel(BorderLayout()).apply {
+        add(ToolbarDecorator.createDecorator(collectionsTree).setAddAction {
+            val name = Messages.showInputDialog(project, "Collection Name:", "New", null)
+            if (!name.isNullOrBlank()) { settings.collections.add(ApiFirstSettings.Collection(name)); updateCollectionsTree(settings) }
+        }.setRemoveAction {
+            val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode
+            val userObj = node?.userObject
+            if (userObj is ApiFirstSettings.Collection) settings.collections.remove(userObj)
+            else if (userObj is ApiFirstSettings.SavedRequest) (node.parent as? DefaultMutableTreeNode)?.let { (it.userObject as? ApiFirstSettings.Collection)?.requests?.remove(userObj) }
+            updateCollectionsTree(settings)
+        }.createPanel(), BorderLayout.CENTER)
     }
 
     private fun updateAuthFields() {
@@ -179,6 +191,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         envCombo.addActionListener { settings.activeEnvironmentName = if (envCombo.selectedItem == "No Environment") null else envCombo.selectedItem as String; refreshSnippets() }
         manageEnvButton.addActionListener { if (ManageEnvironmentsDialog(project, settings).showAndGet()) updateEnvCombo(settings) }
         authTypeCombo.addActionListener { updateAuthFields(); refreshSnippets() }
+        bodyTypeCombo.addActionListener { bodyCardLayout.show(bodyCards, bodyTypeCombo.selectedItem as String); refreshSnippets() }
         snippetLanguageCombo.addActionListener { refreshSnippets() }
         saveToCollectionButton.addActionListener {
             val names = settings.collections.map { it.name }.toTypedArray()
@@ -204,19 +217,8 @@ class ApiExplorerToolWindow(private val project: Project) {
             }
             refreshSnippets()
         }
-        headersTableModel.addTableModelListener { autoRow(it) }; paramsTableModel.addTableModelListener { if (!isSyncingParams) { autoRow(it); syncTableToUrl() } }; assertionsTableModel.addTableModelListener { autoRow(it) }
-    }
-
-    private fun refreshSnippets() {
-        val settings = ApiFirstSettings.getInstance(project)
-        val request = createSavedRequest("Temporary")
-        val vars = settings.getActiveVariables()
-        snippetTextArea.text = when (snippetLanguageCombo.selectedItem as String) {
-            "cURL" -> codeGenerator.generateCurl(request, vars)
-            "Python (Requests)" -> codeGenerator.generatePython(request, vars)
-            "JavaScript (Fetch)" -> codeGenerator.generateJsFetch(request, vars)
-            else -> ""
-        }
+        headersTableModel.addTableModelListener { autoRow(it) }; paramsTableModel.addTableModelListener { if (!isSyncingParams) { autoRow(it); syncTableToUrl() } }
+        assertionsTableModel.addTableModelListener { autoRow(it) }; formDataTableModel.addTableModelListener { autoRow(it) }
     }
 
     private fun createSavedRequest(name: String): ApiFirstSettings.SavedRequest {
@@ -225,19 +227,39 @@ class ApiExplorerToolWindow(private val project: Project) {
             val type = assertionsTableModel.getValueAt(i, 0) as? String ?: ""; val expected = assertionsTableModel.getValueAt(i, 1) as? String ?: ""
             if (type.isNotEmpty()) assertions.add(ApiFirstSettings.Assertion(type, "equals", expected))
         }
+        val formData = mutableListOf<ApiFirstSettings.FormDataParam>()
+        for (i in 0 until formDataTableModel.rowCount) {
+            val k = formDataTableModel.getValueAt(i, 0) as? String ?: ""; val v = formDataTableModel.getValueAt(i, 1) as? String ?: ""
+            if (k.isNotEmpty()) formData.add(ApiFirstSettings.FormDataParam(k, v))
+        }
         return ApiFirstSettings.SavedRequest(
             name = name, method = methodCombo.selectedItem as String, url = urlField.text.trim(),
-            body = reqBodyArea.text.takeIf { it.isNotBlank() }, headers = getHeadersFromTable().toMutableMap(),
+            bodyType = bodyTypeCombo.selectedItem as String, body = reqBodyArea.text.takeIf { it.isNotBlank() },
+            formData = formData, headers = getHeadersFromTable().toMutableMap(),
             preRequestScript = reqPreScriptArea.text.takeIf { it.isNotBlank() }, postResponseScript = reqScriptArea.text.takeIf { it.isNotBlank() },
             assertions = assertions, authType = authTypeCombo.selectedItem as String, authParams = authFields.mapValues { it.value.text }.toMutableMap()
         )
     }
 
     private fun loadRequestToEditor(req: ApiFirstSettings.SavedRequest) {
-        methodCombo.selectedItem = req.method; urlField.text = req.url; reqBodyArea.text = req.body ?: ""; reqPreScriptArea.text = req.preRequestScript ?: ""; reqScriptArea.text = req.postResponseScript ?: ""
+        methodCombo.selectedItem = req.method; urlField.text = req.url
+        bodyTypeCombo.selectedItem = req.bodyType; reqBodyArea.text = req.body ?: ""
+        formDataTableModel.rowCount = 0; req.formData.forEach { formDataTableModel.addRow(arrayOf(it.key, it.value)) }; formDataTableModel.addRow(arrayOf("", ""))
+        reqPreScriptArea.text = req.preRequestScript ?: ""; reqScriptArea.text = req.postResponseScript ?: ""
         headersTableModel.rowCount = 0; req.headers.forEach { (k, v) -> headersTableModel.addRow(arrayOf(k, v)) }; headersTableModel.addRow(arrayOf("", ""))
         assertionsTableModel.rowCount = 0; req.assertions.forEach { assertionsTableModel.addRow(arrayOf(it.type, it.expectedValue)) }; assertionsTableModel.addRow(arrayOf("", ""))
         authTypeCombo.selectedItem = req.authType; updateAuthFields(); req.authParams.forEach { (k, v) -> authFields[k]?.text = v }; syncUrlToTable(); refreshSnippets()
+    }
+
+    private fun refreshSnippets() {
+        val vars = ApiFirstSettings.getInstance(project).getActiveVariables()
+        val req = createSavedRequest("Temp")
+        snippetTextArea.text = when (snippetLanguageCombo.selectedItem as String) {
+            "cURL" -> codeGenerator.generateCurl(req, vars)
+            "Python (Requests)" -> codeGenerator.generatePython(req, vars)
+            "JavaScript (Fetch)" -> codeGenerator.generateJsFetch(req, vars)
+            else -> ""
+        }
     }
 
     private fun syncUrlToTable() {
@@ -285,14 +307,12 @@ class ApiExplorerToolWindow(private val project: Project) {
         val reqData = createSavedRequest("History Entry"); settings.history.add(reqData); savedRequestsList.add(0, reqData); historyListModel.add(0, "$method $url")
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
-                val request = ApiRequest(method, url, getHeadersFromTable(), reqBodyArea.text.takeIf { it.isNotBlank() }, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text })
-                val response = executor.execute(request, settings.getActiveVariables())
+                val response = executor.execute(ApiRequest(method, url, getHeadersFromTable(), reqData.bodyType, reqData.body, reqData.formData, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text }), settings.getActiveVariables())
                 reqScriptArea.text.takeIf { it.isNotBlank() }?.let { scriptEngine.execute(it, response.body) }
                 val results = assertionEngine.verify(response, reqData.assertions)
                 ApplicationManager.getApplication().invokeLater {
                     responseArea.text = try { GsonBuilder().setPrettyPrinting().create().toJson(JsonParser.parseString(response.body)) } catch (e: Exception) { response.body }
-                    responseTree.model = jsonTreeBuilder.build(response.body)
-                    resHeadersArea.text = response.headers.entries.joinToString("\n") { "${it.key}: ${it.value.joinToString(", ")}" }
+                    responseTree.model = jsonTreeBuilder.build(response.body); resHeadersArea.text = response.headers.entries.joinToString("\n") { "${it.key}: ${it.value.joinToString(", ")}" }
                     testResultsArea.text = if (results.isEmpty()) "No tests defined." else results.joinToString("\n") { "${if (it.success) "✅" else "❌"} ${it.assertion.type}: Expected [${it.assertion.expectedValue}], Actual [${it.actualValue}]" }
                     statusLabel.text = "Status: ${response.statusCode} | Time: ${response.durationMs}ms | Tests: ${results.count { it.success }}/${results.size} passed"
                 }
