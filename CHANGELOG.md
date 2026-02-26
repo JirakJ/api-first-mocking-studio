@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.8] - 2026-02-26
+### Fixed
+- Ensured correct versioning in build artifacts (fixed reference to old sandbox version).
+
 ## [2026.2.7] - 2026-02-26
 ### Changed
 - Re-attempting build and publish with new Marketplace token.
