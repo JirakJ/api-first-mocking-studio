@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.2.14] - 2026-02-26
+### Changed
+- Complete UI Rewrite: Transformed the Tool Window into a full-fledged, Postman-like REST client interface.
+- Added explicit method dropdown, URL bar, Request Tabs (Body, Headers, Scripts), and Response Tabs (Body, Headers).
+- Improved request execution feedback and error handling.
+
 ## [2026.2.13] - 2026-02-26
 ### Fixed
 - Changed `<release-version>` in `plugin.xml` to `20262` to properly match the `2026.2.*` plugin versioning scheme for the JetBrains Marketplace.
