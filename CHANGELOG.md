@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.20] - 2026-02-26
+### Added
+- **Query Parameters Synchronization:** Introduced a new "Params" tab in the request panel. It provides a dedicated table for URL query parameters that automatically syncs bi-directionally with the URL text field.
+
 ## [2026.2.19] - 2026-02-26
 ### Added
 - **Request History Sidebar:** Implemented a new left sidebar that automatically tracks and displays previously sent requests.

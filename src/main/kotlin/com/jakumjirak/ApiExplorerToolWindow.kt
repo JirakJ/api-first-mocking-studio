@@ -31,6 +31,12 @@ import javax.swing.table.DefaultTableModel
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import javax.swing.event.DocumentEvent
+import javax.swing.event.DocumentListener
+import java.net.URL
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 class ApiExplorerToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
@@ -56,6 +62,8 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val manageEnvButton = JButton(AllIcons.General.Settings)
     
     // Request Components
+    private val paramsTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
+    private val paramsTable = JBTable(paramsTableModel)
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
     private val headersTable = JBTable(headersTableModel)
     private val reqBodyArea = JBTextArea()
@@ -70,6 +78,8 @@ class ApiExplorerToolWindow(private val project: Project) {
     
     private val executor = ApiRequestExecutor()
     private val scriptEngine = ResponseScriptEngine(project)
+    
+    private var isSyncingParams = false
 
     init {
         setupUI()
@@ -109,6 +119,9 @@ class ApiExplorerToolWindow(private val project: Project) {
         headersTableModel.addRow(arrayOf("Content-Type", "application/json"))
         headersTableModel.addRow(arrayOf("", ""))
         
+        // Initialize params with empty row
+        paramsTableModel.addRow(arrayOf("", ""))
+
         // Add listener to automatically add a new row when the last row is edited
         headersTableModel.addTableModelListener { e ->
             if (e.type == javax.swing.event.TableModelEvent.UPDATE) {
@@ -125,8 +138,27 @@ class ApiExplorerToolWindow(private val project: Project) {
                 }
             }
         }
+        
+        paramsTableModel.addTableModelListener { e ->
+            if (isSyncingParams) return@addTableModelListener
+            if (e.type == javax.swing.event.TableModelEvent.UPDATE) {
+                val row = e.firstRow
+                val lastRow = paramsTableModel.rowCount - 1
+                if (row == lastRow) {
+                    val key = paramsTableModel.getValueAt(lastRow, 0) as? String ?: ""
+                    val value = paramsTableModel.getValueAt(lastRow, 1) as? String ?: ""
+                    if (key.isNotEmpty() || value.isNotEmpty()) {
+                        ApplicationManager.getApplication().invokeLater {
+                            paramsTableModel.addRow(arrayOf("", ""))
+                        }
+                    }
+                }
+                syncTableToUrl()
+            }
+        }
 
         // --- Request Panel ---
+        reqTabs.addTab("Params", JBScrollPane(paramsTable))
         reqTabs.addTab("Body", JBScrollPane(reqBodyArea))
         reqTabs.addTab("Headers", JBScrollPane(headersTable))
         reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
@@ -178,6 +210,65 @@ class ApiExplorerToolWindow(private val project: Project) {
         panel.add(mainSplitter, BorderLayout.CENTER)
     }
 
+    private fun syncUrlToTable() {
+        if (isSyncingParams) return
+        isSyncingParams = true
+        try {
+            val urlStr = urlField.text
+            val queryIndex = urlStr.indexOf('?')
+            if (queryIndex != -1 && queryIndex < urlStr.length - 1) {
+                val query = urlStr.substring(queryIndex + 1)
+                val pairs = query.split('&')
+                paramsTableModel.rowCount = 0
+                for (pair in pairs) {
+                    val idx = pair.indexOf('=')
+                    val key = if (idx != -1) URLDecoder.decode(pair.substring(0, idx), "UTF-8") else pair
+                    val value = if (idx != -1) URLDecoder.decode(pair.substring(idx + 1), "UTF-8") else ""
+                    paramsTableModel.addRow(arrayOf(key, value))
+                }
+                paramsTableModel.addRow(arrayOf("", ""))
+            } else if (queryIndex == -1 || queryIndex == urlStr.length - 1) {
+                // If query is empty, just keep one empty row if not already there
+                if (paramsTableModel.rowCount > 1 || (paramsTableModel.rowCount == 1 && (paramsTableModel.getValueAt(0, 0) as String).isNotEmpty())) {
+                    paramsTableModel.rowCount = 0
+                    paramsTableModel.addRow(arrayOf("", ""))
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore malformed URLs during typing
+        } finally {
+            isSyncingParams = false
+        }
+    }
+
+    private fun syncTableToUrl() {
+        if (isSyncingParams) return
+        isSyncingParams = true
+        try {
+            if (paramsTable.isEditing) {
+                paramsTable.cellEditor.stopCellEditing()
+            }
+            val baseUrl = urlField.text.substringBefore('?')
+            val sb = StringBuilder(baseUrl)
+            var first = true
+            for (i in 0 until paramsTableModel.rowCount) {
+                val key = paramsTableModel.getValueAt(i, 0) as? String ?: ""
+                val value = paramsTableModel.getValueAt(i, 1) as? String ?: ""
+                if (key.isNotEmpty()) {
+                    sb.append(if (first) "?" else "&")
+                    sb.append(URLEncoder.encode(key, "UTF-8"))
+                    sb.append("=")
+                    sb.append(URLEncoder.encode(value, "UTF-8"))
+                    first = false
+                }
+            }
+            urlField.text = sb.toString()
+        } catch (e: Exception) {
+        } finally {
+            isSyncingParams = false
+        }
+    }
+
     private fun updateEnvCombo(settings: ApiFirstSettings) {
         envCombo.removeAllItems()
         envCombo.addItem("No Environment")
@@ -204,6 +295,12 @@ class ApiExplorerToolWindow(private val project: Project) {
                 updateEnvCombo(settings)
             }
         }
+
+        urlField.document.addDocumentListener(object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) { syncUrlToTable() }
+            override fun removeUpdate(e: DocumentEvent?) { syncUrlToTable() }
+            override fun changedUpdate(e: DocumentEvent?) { syncUrlToTable() }
+        })
 
         historyList.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
