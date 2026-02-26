@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.2.28] - 2026-02-26
+### Added
+- **OpenAPI/Swagger Import:** You can now import existing OpenAPI 3.0/3.1 or Swagger 2.0 specifications directly into a collection. 
+- Automatically generates requests for all endpoints and methods defined in the spec.
+- Accessible via the "Download" icon in the Collections sidebar tab.
+
 ## [2026.2.27] - 2026-02-26
 ### Added
 - **Extended Body Support:** Introduced support for multiple body types in requests.
