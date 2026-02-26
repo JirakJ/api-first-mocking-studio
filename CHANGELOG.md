@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.5] - 2026-02-26
+### Changed
+- Attempting publish with updated Marketplace token.
+
 ## [2026.2.4] - 2026-02-26
 ### Added
 - Default plugin icon (`pluginIcon.svg`).
