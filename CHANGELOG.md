@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.3] - 2026-02-26
+### Changed
+- Added internal performance note in OpenApiParser.
+
 ## [2026.2.2] - 2026-02-26
 ### Changed
 - Updated Marketplace Product Code to `PAPIFIRSTMOCKIN`.
