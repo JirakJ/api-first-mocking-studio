@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.25] - 2026-02-26
+### Added
+- **Interactive JSON Tree View:** Added a "Tree" tab to the response panel that provides a hierarchical, navigable tree representation of JSON responses.
+- Easy inspection of nested objects and arrays in large API payloads.
+
 ## [2026.2.24] - 2026-02-26
 ### Added
 - **Test & Assertion Engine:** Introduced a new "Tests" tab to define verification rules for responses.
