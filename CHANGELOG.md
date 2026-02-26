@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026.2.12] - 2026-02-26
+### Fixed
+- Correctly configured `pluginIcon` directly in `plugin.xml` and removed deprecated `instrumentationTools()`.
+
+## [2026.2.11] - 2026-02-26
+### Fixed
+- Correctly configured `pluginIcon` in `build.gradle.kts`.
+
 ## [2026.2.10] - 2026-02-26
 ### Fixed
 - Updated Gradle version to 8.13 to support IntelliJ Platform Gradle Plugin 2.11.0.
