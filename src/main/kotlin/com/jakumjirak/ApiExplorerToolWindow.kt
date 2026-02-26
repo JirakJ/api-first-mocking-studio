@@ -1,21 +1,23 @@
 package com.jakumjirak
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.components.JBTabbedPane
+import com.intellij.ui.components.JBTextField
 import com.intellij.ui.components.JBTextArea
-import com.intellij.ui.treeStructure.Tree
 import com.intellij.ui.content.ContentFactory
-import java.awt.BorderLayout
-import javax.swing.JPanel
-import javax.swing.JComponent
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.util.ui.JBUI
+import java.awt.BorderLayout
+import java.awt.FlowLayout
+import javax.swing.JButton
+import javax.swing.JPanel
+import javax.swing.BorderFactory
 
 class ApiExplorerToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
@@ -26,102 +28,154 @@ class ApiExplorerToolWindowFactory : ToolWindowFactory {
 }
 
 class ApiExplorerToolWindow(private val project: Project) {
-    private val splitter = OnePixelSplitter(false, 0.3f)
-    private val tree = Tree()
-    private val responseArea = JBTextArea()
-    private val statusLabel = JBLabel("Ready")
-    private val panel: JPanel = JPanel(BorderLayout())
+    private val panel = JPanel(BorderLayout())
     
-    private var currentOpenApi: io.swagger.v3.oas.models.OpenAPI? = null
+    // Top Panel Components
+    private val methodCombo = ComboBox(arrayOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"))
+    private val urlField = JBTextField("https://postman-echo.com/get")
+    private val sendButton = JButton("Send")
+    
+    // Request Components
+    private val reqHeadersArea = JBTextArea("Accept: application/json\nContent-Type: application/json")
+    private val reqBodyArea = JBTextArea()
+    private val reqScriptArea = JBTextArea("// Example: auth_token=$.token")
+    private val reqTabs = JBTabbedPane()
+    
+    // Response Components
+    private val responseArea = JBTextArea()
+    private val resHeadersArea = JBTextArea()
+    private val resTabs = JBTabbedPane()
+    private val statusLabel = JBLabel("Ready")
+    
     private val executor = ApiRequestExecutor()
     private val scriptEngine = ResponseScriptEngine(project)
 
     init {
-        setupTree()
-        setupResponsePanel()
+        setupUI()
+        setupListeners()
+    }
+
+    private fun setupUI() {
+        // --- Top Bar ---
+        val topBar = JPanel(BorderLayout(5, 0)).apply {
+            border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
+            add(methodCombo, BorderLayout.WEST)
+            add(urlField, BorderLayout.CENTER)
+            add(sendButton, BorderLayout.EAST)
+        }
+
+        // --- Request Panel ---
+        reqTabs.addTab("Body", JBScrollPane(reqBodyArea))
+        reqTabs.addTab("Headers", JBScrollPane(reqHeadersArea))
+        reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
+
+        val requestPanel = JPanel(BorderLayout()).apply {
+            add(topBar, BorderLayout.NORTH)
+            add(reqTabs, BorderLayout.CENTER)
+        }
+
+        // --- Response Panel ---
+        responseArea.isEditable = false
+        resHeadersArea.isEditable = false
+        responseArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
+        resHeadersArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         
-        val toolbar = setupToolbar()
-        
-        val leftPanel = JPanel(BorderLayout())
-        leftPanel.add(JBScrollPane(tree), BorderLayout.CENTER)
-        
-        val rightPanel = JPanel(BorderLayout())
-        rightPanel.add(JBScrollPane(responseArea), BorderLayout.CENTER)
-        rightPanel.add(statusLabel, BorderLayout.SOUTH)
-        
-        splitter.firstComponent = leftPanel
-        splitter.secondComponent = rightPanel
-        
-        panel.add(toolbar, BorderLayout.NORTH)
+        resTabs.addTab("Body", JBScrollPane(responseArea))
+        resTabs.addTab("Headers", JBScrollPane(resHeadersArea))
+
+        val responsePanel = JPanel(BorderLayout()).apply {
+            add(resTabs, BorderLayout.CENTER)
+            
+            val statusPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+                add(statusLabel)
+            }
+            add(statusPanel, BorderLayout.SOUTH)
+        }
+
+        // --- Main Splitter ---
+        val splitter = OnePixelSplitter(true, 0.5f).apply {
+            firstComponent = requestPanel
+            secondComponent = responsePanel
+        }
+
         panel.add(splitter, BorderLayout.CENTER)
     }
 
-    private fun setupTree() {
-        tree.emptyText.text = "No API loaded"
-    }
-
-    private fun setupResponsePanel() {
-        responseArea.isEditable = false
-        // Fixed background access
-        responseArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
-    }
-
-    private fun setupToolbar(): JComponent {
-        val actionGroup = DefaultActionGroup().apply {
-            add(GenerateHttpClientAction(project) { currentOpenApi })
-            add(object : com.intellij.openapi.actionSystem.AnAction("Execute Selected") {
-                override fun actionPerformed(e: com.intellij.openapi.actionSystem.AnActionEvent) {
-                    executeSelectedRequest()
-                }
-            })
+    private fun setupListeners() {
+        sendButton.addActionListener {
+            executeRequest()
         }
-        val toolbar = ActionManager.getInstance().createActionToolbar("ApiExplorer", actionGroup, true)
-        toolbar.targetComponent = panel
-        return toolbar.component
-    }
-
-    private fun executeSelectedRequest() {
-        val node = tree.lastSelectedPathComponent as? javax.swing.tree.DefaultMutableTreeNode ?: return
-        val userObject = node.userObject.toString()
         
-        if (userObject.contains(":")) {
-            val method = userObject.substringBefore(":").trim()
-            val path = (node.parent as javax.swing.tree.DefaultMutableTreeNode).userObject.toString()
-            
-            val settings = ApiFirstSettings.getInstance(project)
-            val variables = settings.variables
-            
-            statusLabel.text = "Executing $method $path..."
-            
-            ApplicationManager.getApplication().executeOnPooledThread {
-                try {
-                    val request = ApiRequest(method, "https://postman-echo.com$path") 
-                    val response = executor.execute(request, variables)
-                    
-                    // Scripting simulation: if path contains auth, extract token
-                    if (path.contains("login") || path.contains("auth") || response.body.contains("token")) {
-                        scriptEngine.execute("auth_token=$.token", response.body)
-                    }
-                    
-                    ApplicationManager.getApplication().invokeLater {
-                        responseArea.text = "Status: ${response.statusCode}\n" +
-                                "Time: ${response.durationMs}ms\n\n" +
-                                "Body:\n${response.body}"
-                        statusLabel.text = "Completed in ${response.durationMs}ms"
-                    }
-                } catch (e: Exception) {
-                    ApplicationManager.getApplication().invokeLater {
-                        responseArea.text = "Error: ${e.message}"
-                        statusLabel.text = "Failed"
-                    }
-                }
+        // Quick update body if method changes
+        methodCombo.addActionListener {
+            val method = methodCombo.selectedItem as String
+            if (method == "GET" || method == "DELETE" || method == "HEAD") {
+                reqTabs.selectedIndex = 1 // Switch to Headers if body not typical
+            } else {
+                reqTabs.selectedIndex = 0 // Switch to Body
             }
         }
     }
 
-    fun updateTree(model: javax.swing.tree.TreeModel, openApi: io.swagger.v3.oas.models.OpenAPI) {
-        this.currentOpenApi = openApi
-        tree.model = model
+    private fun parseHeaders(headerText: String): Map<String, String> {
+        val map = mutableMapOf<String, String>()
+        headerText.lines().forEach { line ->
+            if (line.contains(":")) {
+                val key = line.substringBefore(":").trim()
+                val value = line.substringAfter(":").trim()
+                if (key.isNotEmpty()) {
+                    map[key] = value
+                }
+            }
+        }
+        return map
+    }
+
+    private fun executeRequest() {
+        val method = methodCombo.selectedItem as String
+        val url = urlField.text.trim()
+        
+        if (url.isEmpty()) return
+        
+        val headers = parseHeaders(reqHeadersArea.text)
+        val body = reqBodyArea.text.takeIf { it.isNotBlank() }
+        val script = reqScriptArea.text.takeIf { it.isNotBlank() }
+        
+        statusLabel.text = "Sending $method request..."
+        sendButton.isEnabled = false
+        
+        val settings = ApiFirstSettings.getInstance(project)
+        val variables = settings.variables
+
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                val request = ApiRequest(method, url, headers, body)
+                val response = executor.execute(request, variables)
+                
+                // Execute Post-Response Script
+                if (script != null) {
+                    scriptEngine.execute(script, response.body)
+                }
+                
+                val formattedHeaders = response.headers.entries.joinToString("\n") { 
+                    "${it.key}: ${it.value.joinToString(", ")}" 
+                }
+
+                ApplicationManager.getApplication().invokeLater {
+                    responseArea.text = response.body
+                    resHeadersArea.text = formattedHeaders
+                    statusLabel.text = "Status: ${response.statusCode} | Time: ${response.durationMs}ms"
+                    sendButton.isEnabled = true
+                }
+            } catch (e: Exception) {
+                ApplicationManager.getApplication().invokeLater {
+                    responseArea.text = "Error executing request:\n${e.message}\n\n${e.stackTraceToString()}"
+                    resHeadersArea.text = ""
+                    statusLabel.text = "Failed"
+                    sendButton.isEnabled = true
+                }
+            }
+        }
     }
 
     fun getContent(): JPanel = panel
