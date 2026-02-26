@@ -80,6 +80,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val responseArea = JBTextArea()
     private val resHeadersArea = JBTextArea()
     private val testResultsArea = JBTextArea()
+    private val responseTree = Tree(DefaultTreeModel(DefaultMutableTreeNode("Response")))
     private val resTabs = JBTabbedPane()
     private val statusLabel = JBLabel("Ready")
     
@@ -87,6 +88,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val preScriptEngine = PreRequestScriptEngine(project)
     private val scriptEngine = ResponseScriptEngine(project)
     private val assertionEngine = AssertionEngine()
+    private val jsonTreeBuilder = JsonTreeModelBuilder()
     private var isSyncingParams = false
 
     init { setupUI(); setupListeners(); updateAuthFields() }
@@ -124,7 +126,10 @@ class ApiExplorerToolWindow(private val project: Project) {
         resHeadersArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         testResultsArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         
-        resTabs.addTab("Body", JBScrollPane(responseArea)); resTabs.addTab("Headers", JBScrollPane(resHeadersArea)); resTabs.addTab("Test Results", JBScrollPane(testResultsArea))
+        resTabs.addTab("Body", JBScrollPane(responseArea))
+        resTabs.addTab("Tree", JBScrollPane(responseTree))
+        resTabs.addTab("Headers", JBScrollPane(resHeadersArea))
+        resTabs.addTab("Test Results", JBScrollPane(testResultsArea))
 
         val responsePanel = JPanel(BorderLayout()).apply { add(resTabs, BorderLayout.CENTER); add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(statusLabel) }, BorderLayout.SOUTH) }
         val editorSplitter = OnePixelSplitter(true, 0.5f).apply { firstComponent = requestPanel; secondComponent = responsePanel }
@@ -261,6 +266,7 @@ class ApiExplorerToolWindow(private val project: Project) {
                 val results = assertionEngine.verify(response, reqData.assertions)
                 ApplicationManager.getApplication().invokeLater {
                     responseArea.text = try { GsonBuilder().setPrettyPrinting().create().toJson(JsonParser.parseString(response.body)) } catch (e: Exception) { response.body }
+                    responseTree.model = jsonTreeBuilder.build(response.body)
                     resHeadersArea.text = response.headers.entries.joinToString("\n") { "${it.key}: ${it.value.joinToString(", ")}" }
                     testResultsArea.text = if (results.isEmpty()) "No tests defined." else results.joinToString("\n") { "${if (it.success) "✅" else "❌"} ${it.assertion.type}: Expected [${it.assertion.expectedValue}], Actual [${it.actualValue}]" }
                     statusLabel.text = "Status: ${response.statusCode} | Time: ${response.durationMs}ms | Tests: ${results.count { it.success }}/${results.size} passed"
