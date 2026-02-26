@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.2.26] - 2026-02-26
+### Added
+- **Code Snippet Generation:** Introduced a new "Snippets" tab in the request panel. Automatically generates code for various languages and tools based on the current request configuration.
+- Supported snippets: cURL, Python (Requests), and JavaScript (Fetch).
+- Snippets update in real-time as you modify the URL, headers, or authentication settings.
+
 ## [2026.2.25] - 2026-02-26
 ### Added
 - **Interactive JSON Tree View:** Added a "Tree" tab to the response panel that provides a hierarchical, navigable tree representation of JSON responses.
