@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.2.29] - 2026-02-26
+### Added
+- **Multipart File Upload Support:** Form-data parameters now support a "File" type.
+- Selecting "File" in the body table automatically opens a native file chooser.
+- The execution engine now correctly builds multipart requests with binary file content.
+
 ## [2026.2.28] - 2026-02-26
 ### Added
 - **OpenAPI/Swagger Import:** You can now import existing OpenAPI 3.0/3.1 or Swagger 2.0 specifications directly into a collection. 

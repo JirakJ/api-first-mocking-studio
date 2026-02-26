@@ -7,6 +7,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 import java.util.*
+import java.nio.file.Files
 import java.nio.file.Paths
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -54,7 +55,6 @@ class ApiRequestExecutor {
         val startTime = System.currentTimeMillis()
         val builder = HttpRequest.newBuilder().uri(URI.create(resolvedUrl))
 
-        // Build Body based on type
         val bodyPublisher = when (request.bodyType) {
             "Raw" -> {
                 val resolvedBody = resolver.resolve(request.body)
@@ -69,38 +69,50 @@ class ApiRequestExecutor {
                 HttpRequest.BodyPublishers.ofString(form)
             }
             "Form-Data" -> {
-                // Simplified multipart (mostly text support for now)
                 val boundary = "---" + UUID.randomUUID().toString()
                 builder.header("Content-Type", "multipart/form-data; boundary=$boundary")
-                val sb = StringBuilder()
+                val byteList = mutableListOf<ByteArray>()
+                
                 request.formData.forEach { param ->
-                    sb.append("--$boundary\r\n")
-                    sb.append("Content-Disposition: form-data; name=\"${param.key}\"\r\n\r\n")
-                    sb.append("${resolver.resolve(param.value) ?: param.value}\r\n")
+                    val resolvedValue = resolver.resolve(param.value) ?: param.value
+                    
+                    val header = "--$boundary\r\nContent-Disposition: form-data; name=\"${param.key}\"" +
+                            (if (param.type == "File") "; filename=\"${Paths.get(resolvedValue).fileName}\"\r\nContent-Type: application/octet-stream" else "") +
+                            "\r\n\r\n"
+                    byteList.add(header.toByteArray(StandardCharsets.UTF_8))
+                    
+                    if (param.type == "File") {
+                        try {
+                            val path = Paths.get(resolvedValue)
+                            if (Files.exists(path)) byteList.add(Files.readAllBytes(path))
+                        } catch (e: Exception) { byteList.add("Error reading file".toByteArray()) }
+                    } else {
+                        byteList.add(resolvedValue.toByteArray(StandardCharsets.UTF_8))
+                    }
+                    byteList.add("\r\n".toByteArray(StandardCharsets.UTF_8))
                 }
-                sb.append("--$boundary--\r\n")
-                HttpRequest.BodyPublishers.ofString(sb.toString())
+                byteList.add("--$boundary--\r\n".toByteArray(StandardCharsets.UTF_8))
+                
+                val totalLength = byteList.sumOf { it.size }
+                val combined = ByteArray(totalLength)
+                var current = 0
+                byteList.forEach { 
+                    System.arraycopy(it, 0, combined, current, it.size)
+                    current += it.size
+                }
+                HttpRequest.BodyPublishers.ofByteArray(combined)
             }
             else -> HttpRequest.BodyPublishers.noBody()
         }
 
         builder.method(request.method, bodyPublisher)
-
-        for ((k, v) in request.headers) {
-            builder.header(k, resolver.resolve(v) ?: v) 
-        }
-
+        for ((k, v) in request.headers) builder.header(k, resolver.resolve(v) ?: v) 
         applyAuth(builder, request, resolver)
 
         val response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString())
         val duration = System.currentTimeMillis() - startTime
 
-        return ApiResponse(
-            statusCode = response.statusCode(),
-            headers = response.headers().map(),
-            body = response.body(),
-            durationMs = duration
-        )
+        return ApiResponse(response.statusCode(), response.headers().map(), response.body(), duration)
     }
 
     private fun applyAuth(builder: HttpRequest.Builder, request: ApiRequest, resolver: VariableResolver) {
@@ -112,7 +124,7 @@ class ApiRequestExecutor {
             "Basic Auth" -> {
                 val user = resolver.resolve(request.authParams["username"]) ?: ""
                 val pass = resolver.resolve(request.authParams["password"]) ?: ""
-                val encoded = java.util.Base64.getEncoder().encodeToString("$user:$pass".toByteArray())
+                val encoded = Base64.getEncoder().encodeToString("$user:$pass".toByteArray())
                 builder.header("Authorization", "Basic $encoded")
             }
             "API Key" -> {

@@ -72,7 +72,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val bodyCardLayout = CardLayout()
     private val bodyCards = JPanel(bodyCardLayout)
     private val reqBodyArea = JBTextArea()
-    private val formDataTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
+    private val formDataTableModel = DefaultTableModel(arrayOf("Type", "Key", "Value"), 0)
     private val formDataTable = JBTable(formDataTableModel)
     
     private val assertionsTableModel = DefaultTableModel(arrayOf("Type", "Expected Value"), 0)
@@ -111,7 +111,11 @@ class ApiExplorerToolWindow(private val project: Project) {
 
         headersTableModel.addRow(arrayOf("Accept", "application/json")); headersTableModel.addRow(arrayOf("Content-Type", "application/json")); headersTableModel.addRow(arrayOf("", ""))
         paramsTableModel.addRow(arrayOf("", "")); assertionsTableModel.addRow(arrayOf("Status Code", "200")); assertionsTableModel.addRow(arrayOf("", ""))
-        formDataTableModel.addRow(arrayOf("", ""))
+        formDataTableModel.addRow(arrayOf("Text", "", ""))
+
+        // Setup Form Data Table with Type Column
+        val typeColumn = formDataTable.columnModel.getColumn(0)
+        typeColumn.cellEditor = DefaultCellEditor(ComboBox(arrayOf("Text", "File")))
 
         bodyCards.add(JPanel(), "None"); bodyCards.add(JBScrollPane(reqBodyArea), "Raw")
         bodyCards.add(JBScrollPane(formDataTable), "Form-Data"); bodyCards.add(JBScrollPane(formDataTable), "x-www-form-urlencoded")
@@ -227,15 +231,51 @@ class ApiExplorerToolWindow(private val project: Project) {
         historyList.addListSelectionListener { if (!it.valueIsAdjusting) { val idx = historyList.selectedIndex; if (idx in 0 until savedRequestsList.size) loadRequestToEditor(savedRequestsList[idx]) } }
         collectionsTree.addTreeSelectionListener { val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode; (node?.userObject as? ApiFirstSettings.SavedRequest)?.let { loadRequestToEditor(it) } }
         sendButton.addActionListener { executeRequest() }
+        
         val autoRow = { e: javax.swing.event.TableModelEvent ->
+            val model = e.source as DefaultTableModel
+            if (e.type == javax.swing.event.TableModelEvent.UPDATE && e.firstRow == model.rowCount - 1) {
+                if (model.getValueAt(e.firstRow, 1).toString().isNotEmpty() || model.getValueAt(e.firstRow, 2).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("Text", "", "")) }
+            }
+            refreshSnippets()
+        }
+        
+        formDataTableModel.addTableModelListener { e ->
+            if (e.type == javax.swing.event.TableModelEvent.UPDATE && e.column == 0) { // Type changed
+                val row = e.firstRow
+                val type = formDataTableModel.getValueAt(row, 0) as String
+                if (type == "File") {
+                    val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
+                    val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
+                    if (file != null) {
+                        formDataTableModel.setValueAt(file.path, row, 2)
+                    }
+                }
+            }
+            autoRow(e)
+        }
+        
+        headersTableModel.addTableModelListener { e ->
             val model = e.source as DefaultTableModel
             if (e.type == javax.swing.event.TableModelEvent.UPDATE && e.firstRow == model.rowCount - 1) {
                 if (model.getValueAt(e.firstRow, 0).toString().isNotEmpty() || model.getValueAt(e.firstRow, 1).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("", "")) }
             }
             refreshSnippets()
         }
-        headersTableModel.addTableModelListener { autoRow(it) }; paramsTableModel.addTableModelListener { if (!isSyncingParams) { autoRow(it); syncTableToUrl() } }
-        assertionsTableModel.addTableModelListener { autoRow(it) }; formDataTableModel.addTableModelListener { autoRow(it) }
+        paramsTableModel.addTableModelListener { if (!isSyncingParams) { 
+            val model = it.source as DefaultTableModel
+            if (it.type == javax.swing.event.TableModelEvent.UPDATE && it.firstRow == model.rowCount - 1) {
+                if (model.getValueAt(it.firstRow, 0).toString().isNotEmpty() || model.getValueAt(it.firstRow, 1).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("", "")) }
+            }
+            syncTableToUrl() 
+        } }
+        assertionsTableModel.addTableModelListener { e ->
+            val model = e.source as DefaultTableModel
+            if (e.type == javax.swing.event.TableModelEvent.UPDATE && e.firstRow == model.rowCount - 1) {
+                if (model.getValueAt(e.firstRow, 0).toString().isNotEmpty() || model.getValueAt(e.firstRow, 1).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("", "")) }
+            }
+            refreshSnippets()
+        }
     }
 
     private fun createSavedRequest(name: String): ApiFirstSettings.SavedRequest {
@@ -246,8 +286,10 @@ class ApiExplorerToolWindow(private val project: Project) {
         }
         val formData = mutableListOf<ApiFirstSettings.FormDataParam>()
         for (i in 0 until formDataTableModel.rowCount) {
-            val k = formDataTableModel.getValueAt(i, 0) as? String ?: ""; val v = formDataTableModel.getValueAt(i, 1) as? String ?: ""
-            if (k.isNotEmpty()) formData.add(ApiFirstSettings.FormDataParam(k, v))
+            val type = formDataTableModel.getValueAt(i, 0) as? String ?: "Text"
+            val k = formDataTableModel.getValueAt(i, 1) as? String ?: ""
+            val v = formDataTableModel.getValueAt(i, 2) as? String ?: ""
+            if (k.isNotEmpty()) formData.add(ApiFirstSettings.FormDataParam(k, v, type))
         }
         return ApiFirstSettings.SavedRequest(
             name = name, method = methodCombo.selectedItem as String, url = urlField.text.trim(),
@@ -261,7 +303,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private fun loadRequestToEditor(req: ApiFirstSettings.SavedRequest) {
         methodCombo.selectedItem = req.method; urlField.text = req.url
         bodyTypeCombo.selectedItem = req.bodyType; reqBodyArea.text = req.body ?: ""
-        formDataTableModel.rowCount = 0; req.formData.forEach { formDataTableModel.addRow(arrayOf(it.key, it.value)) }; formDataTableModel.addRow(arrayOf("", ""))
+        formDataTableModel.rowCount = 0; req.formData.forEach { formDataTableModel.addRow(arrayOf(it.type, it.key, it.value)) }; formDataTableModel.addRow(arrayOf("Text", "", ""))
         reqPreScriptArea.text = req.preRequestScript ?: ""; reqScriptArea.text = req.postResponseScript ?: ""
         headersTableModel.rowCount = 0; req.headers.forEach { (k, v) -> headersTableModel.addRow(arrayOf(k, v)) }; headersTableModel.addRow(arrayOf("", ""))
         assertionsTableModel.rowCount = 0; req.assertions.forEach { assertionsTableModel.addRow(arrayOf(it.type, it.expectedValue)) }; assertionsTableModel.addRow(arrayOf("", ""))
