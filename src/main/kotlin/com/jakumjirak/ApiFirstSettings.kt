@@ -39,8 +39,15 @@ class ApiFirstSettings : PersistentStateComponent<ApiFirstSettings> {
         var headers: MutableMap<String, String> = mutableMapOf(),
         var preRequestScript: String? = null,
         var postResponseScript: String? = null,
+        var assertions: MutableList<Assertion> = mutableListOf(),
         var authType: String = "None",
         var authParams: MutableMap<String, String> = mutableMapOf()
+    )
+
+    data class Assertion(
+        var type: String = "Status Code", // Status Code, Body Contains, JSON Match
+        var condition: String = "equals", // equals, contains, exists
+        var expectedValue: String = "200"
     )
 
     override fun getState(): ApiFirstSettings = this
