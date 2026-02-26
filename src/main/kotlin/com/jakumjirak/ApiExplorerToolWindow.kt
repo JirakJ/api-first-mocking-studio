@@ -3,6 +3,8 @@ package com.jakumjirak
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.Messages
@@ -89,6 +91,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val executor = ApiRequestExecutor(); private val preScriptEngine = PreRequestScriptEngine(project)
     private val scriptEngine = ResponseScriptEngine(project); private val assertionEngine = AssertionEngine()
     private val jsonTreeBuilder = JsonTreeModelBuilder(); private val codeGenerator = CodeGenerator()
+    private val importer = Importer()
     private var isSyncingParams = false
 
     init { setupUI(); setupListeners(); updateAuthFields(); refreshSnippets() }
@@ -110,11 +113,8 @@ class ApiExplorerToolWindow(private val project: Project) {
         paramsTableModel.addRow(arrayOf("", "")); assertionsTableModel.addRow(arrayOf("Status Code", "200")); assertionsTableModel.addRow(arrayOf("", ""))
         formDataTableModel.addRow(arrayOf("", ""))
 
-        // Body Panel Setup
-        bodyCards.add(JPanel(), "None")
-        bodyCards.add(JBScrollPane(reqBodyArea), "Raw")
-        bodyCards.add(JBScrollPane(formDataTable), "Form-Data")
-        bodyCards.add(JBScrollPane(formDataTable), "x-www-form-urlencoded")
+        bodyCards.add(JPanel(), "None"); bodyCards.add(JBScrollPane(reqBodyArea), "Raw")
+        bodyCards.add(JBScrollPane(formDataTable), "Form-Data"); bodyCards.add(JBScrollPane(formDataTable), "x-www-form-urlencoded")
         
         val bodyPanel = JPanel(BorderLayout()).apply {
             add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(bodyTypeCombo) }, BorderLayout.NORTH)
@@ -159,7 +159,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     }
 
     private fun createCollectionsPanel(settings: ApiFirstSettings) = JPanel(BorderLayout()).apply {
-        add(ToolbarDecorator.createDecorator(collectionsTree).setAddAction {
+        val decorator = ToolbarDecorator.createDecorator(collectionsTree).setAddAction {
             val name = Messages.showInputDialog(project, "Collection Name:", "New", null)
             if (!name.isNullOrBlank()) { settings.collections.add(ApiFirstSettings.Collection(name)); updateCollectionsTree(settings) }
         }.setRemoveAction {
@@ -168,7 +168,24 @@ class ApiExplorerToolWindow(private val project: Project) {
             if (userObj is ApiFirstSettings.Collection) settings.collections.remove(userObj)
             else if (userObj is ApiFirstSettings.SavedRequest) (node.parent as? DefaultMutableTreeNode)?.let { (it.userObject as? ApiFirstSettings.Collection)?.requests?.remove(userObj) }
             updateCollectionsTree(settings)
-        }.createPanel(), BorderLayout.CENTER)
+        }
+        
+        decorator.addExtraAction(object : AnAction("Import OpenAPI", "Import from file", AllIcons.Actions.Download) {
+            override fun actionPerformed(e: AnActionEvent) {
+                val descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
+                val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
+                if (file != null) {
+                    val collection = importer.importOpenApi(file.path)
+                    if (collection != null) {
+                        settings.collections.add(collection); updateCollectionsTree(settings)
+                        Messages.showInfoMessage(project, "Imported ${collection.requests.size} requests.", "Success")
+                    } else {
+                        Messages.showErrorDialog(project, "Failed to parse file.", "Error")
+                    }
+                }
+            }
+        })
+        add(decorator.createPanel(), BorderLayout.CENTER)
     }
 
     private fun updateAuthFields() {
