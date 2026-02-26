@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.2.23] - 2026-02-26
+### Added
+- **Pre-request Scripts:** Introduced a "Pre-Script" tab to execute logic before a request is sent. Useful for setting dynamic environment variables.
+- **Dynamic Macros:** Pre-scripts now support special macros like `{{$timestamp}}` and `{{$guid}}` for generating real-time data.
+- Full persistence of Pre-scripts in History and Collections.
+
 ## [2026.2.22] - 2026-02-26
 ### Added
 - **Authentication Tab:** Introduced a dedicated UI for managing request authentication. Supports Bearer Token, Basic Auth (Username/Password), and API Keys.

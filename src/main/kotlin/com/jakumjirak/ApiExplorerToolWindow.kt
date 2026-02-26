@@ -69,6 +69,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val authFields = mutableMapOf<String, JBTextField>()
     
     private val reqBodyArea = JBTextArea()
+    private val reqPreScriptArea = JBTextArea("// Example: timestamp={{\$timestamp}}\n// Or: my_var=fixed_value")
     private val reqScriptArea = JBTextArea("// Example: auth_token=$.token")
     private val reqTabs = JBTabbedPane()
     
@@ -79,6 +80,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val statusLabel = JBLabel("Ready")
     
     private val executor = ApiRequestExecutor()
+    private val preScriptEngine = PreRequestScriptEngine(project)
     private val scriptEngine = ResponseScriptEngine(project)
     private var isSyncingParams = false
 
@@ -117,6 +119,7 @@ class ApiExplorerToolWindow(private val project: Project) {
 
         reqTabs.addTab("Params", JBScrollPane(paramsTable))
         reqTabs.addTab("Auth", authPanel)
+        reqTabs.addTab("Pre-Script", JBScrollPane(reqPreScriptArea))
         reqTabs.addTab("Body", JBScrollPane(reqBodyArea))
         reqTabs.addTab("Headers", JBScrollPane(headersTable))
         reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
@@ -219,6 +222,7 @@ class ApiExplorerToolWindow(private val project: Project) {
             name = name, method = methodCombo.selectedItem as String, url = urlField.text.trim(),
             body = reqBodyArea.text.takeIf { it.isNotBlank() },
             headers = getHeadersFromTable().toMutableMap(),
+            preRequestScript = reqPreScriptArea.text.takeIf { it.isNotBlank() },
             postResponseScript = reqScriptArea.text.takeIf { it.isNotBlank() },
             authType = authTypeCombo.selectedItem as String,
             authParams = authFields.mapValues { it.value.text }.toMutableMap()
@@ -227,7 +231,7 @@ class ApiExplorerToolWindow(private val project: Project) {
 
     private fun loadRequestToEditor(req: ApiFirstSettings.SavedRequest) {
         methodCombo.selectedItem = req.method; urlField.text = req.url
-        reqBodyArea.text = req.body ?: ""; reqScriptArea.text = req.postResponseScript ?: ""
+        reqBodyArea.text = req.body ?: ""; reqPreScriptArea.text = req.preRequestScript ?: ""; reqScriptArea.text = req.postResponseScript ?: ""
         headersTableModel.rowCount = 0
         req.headers.forEach { (k, v) -> headersTableModel.addRow(arrayOf(k, v)) }
         headersTableModel.addRow(arrayOf("", ""))
@@ -298,8 +302,13 @@ class ApiExplorerToolWindow(private val project: Project) {
         val method = methodCombo.selectedItem as String; val url = urlField.text.trim()
         if (url.isEmpty()) return
         val settings = ApiFirstSettings.getInstance(project)
+        
+        // Execute Pre-Request Script
+        reqPreScriptArea.text.takeIf { it.isNotBlank() }?.let { preScriptEngine.execute(it) }
+        
         val reqData = createSavedRequest("History Entry")
         settings.history.add(reqData); savedRequestsList.add(0, reqData); historyListModel.add(0, "$method $url")
+        
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 val response = executor.execute(ApiRequest(method, url, getHeadersFromTable(), reqBodyArea.text.takeIf { it.isNotBlank() }, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text }), settings.getActiveVariables())
