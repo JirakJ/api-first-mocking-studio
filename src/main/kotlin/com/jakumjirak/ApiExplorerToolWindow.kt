@@ -71,6 +71,9 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val assertionsTableModel = DefaultTableModel(arrayOf("Type", "Expected Value"), 0)
     private val assertionsTable = JBTable(assertionsTableModel)
     
+    private val snippetLanguageCombo = ComboBox(arrayOf("cURL", "Python (Requests)", "JavaScript (Fetch)"))
+    private val snippetTextArea = JBTextArea()
+    
     private val reqBodyArea = JBTextArea()
     private val reqPreScriptArea = JBTextArea("// Example: timestamp={{\$timestamp}}")
     private val reqScriptArea = JBTextArea("// Example: auth_token=$.token")
@@ -89,9 +92,10 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val scriptEngine = ResponseScriptEngine(project)
     private val assertionEngine = AssertionEngine()
     private val jsonTreeBuilder = JsonTreeModelBuilder()
+    private val codeGenerator = CodeGenerator()
     private var isSyncingParams = false
 
-    init { setupUI(); setupListeners(); updateAuthFields() }
+    init { setupUI(); setupListeners(); updateAuthFields(); refreshSnippets() }
 
     private fun setupUI() {
         val settings = ApiFirstSettings.getInstance(project)
@@ -114,10 +118,18 @@ class ApiExplorerToolWindow(private val project: Project) {
             add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Type: ")); add(authTypeCombo) }, BorderLayout.NORTH)
             add(authFieldsPanel, BorderLayout.CENTER)
         }
+        
+        val snippetPanel = JPanel(BorderLayout()).apply {
+            val top = JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Language: ")); add(snippetLanguageCombo) }
+            add(top, BorderLayout.NORTH)
+            snippetTextArea.isEditable = false
+            snippetTextArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
+            add(JBScrollPane(snippetTextArea), BorderLayout.CENTER)
+        }
 
         reqTabs.addTab("Params", JBScrollPane(paramsTable)); reqTabs.addTab("Auth", authPanel); reqTabs.addTab("Pre-Script", JBScrollPane(reqPreScriptArea))
         reqTabs.addTab("Body", JBScrollPane(reqBodyArea)); reqTabs.addTab("Headers", JBScrollPane(headersTable)); reqTabs.addTab("Tests", JBScrollPane(assertionsTable))
-        reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
+        reqTabs.addTab("Snippets", snippetPanel); reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
 
         val requestPanel = JPanel(BorderLayout()).apply { add(topBar, BorderLayout.NORTH); add(reqTabs, BorderLayout.CENTER) }
         
@@ -126,10 +138,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         resHeadersArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         testResultsArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         
-        resTabs.addTab("Body", JBScrollPane(responseArea))
-        resTabs.addTab("Tree", JBScrollPane(responseTree))
-        resTabs.addTab("Headers", JBScrollPane(resHeadersArea))
-        resTabs.addTab("Test Results", JBScrollPane(testResultsArea))
+        resTabs.addTab("Body", JBScrollPane(responseArea)); resTabs.addTab("Tree", JBScrollPane(responseTree)); resTabs.addTab("Headers", JBScrollPane(resHeadersArea)); resTabs.addTab("Test Results", JBScrollPane(testResultsArea))
 
         val responsePanel = JPanel(BorderLayout()).apply { add(resTabs, BorderLayout.CENTER); add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(statusLabel) }, BorderLayout.SOUTH) }
         val editorSplitter = OnePixelSplitter(true, 0.5f).apply { firstComponent = requestPanel; secondComponent = responsePanel }
@@ -167,9 +176,10 @@ class ApiExplorerToolWindow(private val project: Project) {
 
     private fun setupListeners() {
         val settings = ApiFirstSettings.getInstance(project)
-        envCombo.addActionListener { settings.activeEnvironmentName = if (envCombo.selectedItem == "No Environment") null else envCombo.selectedItem as String }
+        envCombo.addActionListener { settings.activeEnvironmentName = if (envCombo.selectedItem == "No Environment") null else envCombo.selectedItem as String; refreshSnippets() }
         manageEnvButton.addActionListener { if (ManageEnvironmentsDialog(project, settings).showAndGet()) updateEnvCombo(settings) }
-        authTypeCombo.addActionListener { updateAuthFields() }
+        authTypeCombo.addActionListener { updateAuthFields(); refreshSnippets() }
+        snippetLanguageCombo.addActionListener { refreshSnippets() }
         saveToCollectionButton.addActionListener {
             val names = settings.collections.map { it.name }.toTypedArray()
             if (names.isEmpty()) return@addActionListener Messages.showInfoMessage(project, "Create collection first", "Save")
@@ -180,7 +190,9 @@ class ApiExplorerToolWindow(private val project: Project) {
             }
         }
         urlField.document.addDocumentListener(object : DocumentListener {
-            override fun insertUpdate(e: DocumentEvent?) { syncUrlToTable() }; override fun removeUpdate(e: DocumentEvent?) { syncUrlToTable() }; override fun changedUpdate(e: DocumentEvent?) { syncUrlToTable() }
+            override fun insertUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }
+            override fun removeUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }
+            override fun changedUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }
         })
         historyList.addListSelectionListener { if (!it.valueIsAdjusting) { val idx = historyList.selectedIndex; if (idx in 0 until savedRequestsList.size) loadRequestToEditor(savedRequestsList[idx]) } }
         collectionsTree.addTreeSelectionListener { val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode; (node?.userObject as? ApiFirstSettings.SavedRequest)?.let { loadRequestToEditor(it) } }
@@ -190,8 +202,21 @@ class ApiExplorerToolWindow(private val project: Project) {
             if (e.type == javax.swing.event.TableModelEvent.UPDATE && e.firstRow == model.rowCount - 1) {
                 if (model.getValueAt(e.firstRow, 0).toString().isNotEmpty() || model.getValueAt(e.firstRow, 1).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("", "")) }
             }
+            refreshSnippets()
         }
         headersTableModel.addTableModelListener { autoRow(it) }; paramsTableModel.addTableModelListener { if (!isSyncingParams) { autoRow(it); syncTableToUrl() } }; assertionsTableModel.addTableModelListener { autoRow(it) }
+    }
+
+    private fun refreshSnippets() {
+        val settings = ApiFirstSettings.getInstance(project)
+        val request = createSavedRequest("Temporary")
+        val vars = settings.getActiveVariables()
+        snippetTextArea.text = when (snippetLanguageCombo.selectedItem as String) {
+            "cURL" -> codeGenerator.generateCurl(request, vars)
+            "Python (Requests)" -> codeGenerator.generatePython(request, vars)
+            "JavaScript (Fetch)" -> codeGenerator.generateJsFetch(request, vars)
+            else -> ""
+        }
     }
 
     private fun createSavedRequest(name: String): ApiFirstSettings.SavedRequest {
@@ -212,7 +237,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         methodCombo.selectedItem = req.method; urlField.text = req.url; reqBodyArea.text = req.body ?: ""; reqPreScriptArea.text = req.preRequestScript ?: ""; reqScriptArea.text = req.postResponseScript ?: ""
         headersTableModel.rowCount = 0; req.headers.forEach { (k, v) -> headersTableModel.addRow(arrayOf(k, v)) }; headersTableModel.addRow(arrayOf("", ""))
         assertionsTableModel.rowCount = 0; req.assertions.forEach { assertionsTableModel.addRow(arrayOf(it.type, it.expectedValue)) }; assertionsTableModel.addRow(arrayOf("", ""))
-        authTypeCombo.selectedItem = req.authType; updateAuthFields(); req.authParams.forEach { (k, v) -> authFields[k]?.text = v }; syncUrlToTable()
+        authTypeCombo.selectedItem = req.authType; updateAuthFields(); req.authParams.forEach { (k, v) -> authFields[k]?.text = v }; syncUrlToTable(); refreshSnippets()
     }
 
     private fun syncUrlToTable() {
