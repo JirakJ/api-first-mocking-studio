@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026.2.24] - 2026-02-26
+### Added
+- **Test & Assertion Engine:** Introduced a new "Tests" tab to define verification rules for responses.
+- Supports checking Status Code, Body Content (substring), and JSON Matching (using JSONPath syntax like `$.user.id=1`).
+- A "Test Results" tab has been added to the response panel to show visual pass/fail feedback for each rule.
+- Detailed summary of test results is now displayed in the status bar after each request.
+
 ## [2026.2.23] - 2026-02-26
 ### Added
 - **Pre-request Scripts:** Introduced a "Pre-Script" tab to execute logic before a request is sent. Useful for setting dynamic environment variables.
