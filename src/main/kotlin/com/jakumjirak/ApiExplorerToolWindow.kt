@@ -1,5 +1,7 @@
 package com.jakumjirak
 
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
@@ -22,7 +24,11 @@ import java.awt.FlowLayout
 import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.BorderFactory
+import javax.swing.Box
 import javax.swing.table.DefaultTableModel
+import com.intellij.icons.AllIcons
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
 
 class ApiExplorerToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
@@ -40,6 +46,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val urlField = JBTextField("https://httpbin.org/get")
     private val sendButton = JButton("Send")
     private val envCombo = ComboBox<String>()
+    private val manageEnvButton = JButton(AllIcons.General.Settings)
     
     // Request Components
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
@@ -74,6 +81,8 @@ class ApiExplorerToolWindow(private val project: Project) {
             
             val leftControls = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
                 add(envCombo)
+                add(manageEnvButton)
+                add(Box.createHorizontalStrut(5))
                 add(methodCombo)
             }
             
@@ -159,6 +168,13 @@ class ApiExplorerToolWindow(private val project: Project) {
         envCombo.addActionListener {
             val selected = envCombo.selectedItem as? String
             settings.activeEnvironmentName = if (selected == "No Environment") null else selected
+        }
+        
+        manageEnvButton.addActionListener {
+            val dialog = ManageEnvironmentsDialog(project, settings)
+            if (dialog.showAndGet()) {
+                updateEnvCombo(settings)
+            }
         }
 
         sendButton.addActionListener {
