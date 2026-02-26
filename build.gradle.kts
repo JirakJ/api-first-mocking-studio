@@ -20,7 +20,6 @@ dependencies {
         bundledPlugins("com.intellij.java", "org.jetbrains.plugins.terminal")
         pluginVerifier()
         zipSigner()
-        instrumentationTools()
     }
     
     // OpenAPI Parser
