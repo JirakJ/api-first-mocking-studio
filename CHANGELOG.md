@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.33] - 2026-02-27
+### Added
+- **Postman Collection Import:** You can now natively import Postman Collections (v2.1 JSON format) directly into your workspace.
+- This allows for an instant migration of your existing Postman setups, perfectly preserving request methods, URLs, headers, and raw bodies.
+
 ## [2026.2.32] - 2026-02-27
 ### Added
 - **Import Collections from JSON:** Added the ability to import a collection from a previously exported JSON file.

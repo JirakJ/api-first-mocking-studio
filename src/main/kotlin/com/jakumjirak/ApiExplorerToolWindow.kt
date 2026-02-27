@@ -194,6 +194,23 @@ class ApiExplorerToolWindow(private val project: Project) {
                 }
             }
         })
+
+        decorator.addExtraAction(object : AnAction("Import Postman Collection", "Import from Postman v2.1 JSON", AllIcons.ToolbarDecorator.Import) {
+            override fun actionPerformed(e: AnActionEvent) {
+                val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+                val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
+                if (file != null) {
+                    val collection = importer.importPostmanCollection(file.path)
+                    if (collection != null && collection.requests.isNotEmpty()) {
+                        settings.collections.add(collection)
+                        updateCollectionsTree(settings)
+                        Messages.showInfoMessage(project, "Successfully imported Postman Collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")
+                    } else {
+                        Messages.showErrorDialog(project, "The selected file does not appear to be a valid Postman Collection (v2.1).", "Import Error")
+                    }
+                }
+            }
+        })
         
         decorator.addExtraAction(object : AnAction("Import Collection", "Import collection from JSON", AllIcons.ToolbarDecorator.Import) {
             override fun actionPerformed(e: AnActionEvent) {
