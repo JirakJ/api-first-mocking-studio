@@ -35,9 +35,11 @@ class ApiFirstSettings : PersistentStateComponent<ApiFirstSettings> {
         var name: String = "",
         var method: String = "GET",
         var url: String = "",
-        var bodyType: String = "Raw", // None, Raw, Form-Data, x-www-form-urlencoded
+        var bodyType: String = "Raw", // None, Raw, Form-Data, x-www-form-urlencoded, GraphQL
         var body: String? = null,
         var formData: MutableList<FormDataParam> = mutableListOf(),
+        var graphqlQuery: String? = null,
+        var graphqlVariables: String? = null,
         var headers: MutableMap<String, String> = mutableMapOf(),
         var preRequestScript: String? = null,
         var postResponseScript: String? = null,

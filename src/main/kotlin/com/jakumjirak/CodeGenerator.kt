@@ -18,7 +18,16 @@ class CodeGenerator {
         }
         
         request.body?.let {
-            sb.append(" \\\n--data-raw '$it'")
+            if (request.bodyType == "Raw") {
+                sb.append(" \\\n--data-raw '$it'")
+            }
+        }
+        if (request.bodyType == "GraphQL") {
+            val query = resolver.resolve(request.graphqlQuery) ?: ""
+            val vars = resolver.resolve(request.graphqlVariables) ?: "{}"
+            val escapedQuery = query.replace("\"", "\\\"").replace("\n", "\\n")
+            sb.append(" \\\n--header 'Content-Type: application/json'")
+            sb.append(" \\\n--data-raw '{\"query\": \"$escapedQuery\", \"variables\": $vars}'")
         }
         
         return sb.toString()
@@ -27,11 +36,19 @@ class CodeGenerator {
     fun generatePython(request: ApiFirstSettings.SavedRequest, variables: Map<String, String>): String {
         val resolver = VariableResolver(variables)
         val url = resolver.resolve(request.url) ?: request.url
-        val sb = StringBuilder("import requests\n\n")
+        val sb = StringBuilder("import requests\nimport json\n\n")
         sb.append("url = \"$url\"\n")
         
-        if (request.body != null) {
+        if (request.bodyType == "Raw" && request.body != null) {
             sb.append("payload = \"\"\"${request.body}\"\"\"\n")
+        } else if (request.bodyType == "GraphQL") {
+            val query = resolver.resolve(request.graphqlQuery) ?: ""
+            val vars = resolver.resolve(request.graphqlVariables) ?: "{}"
+            val escapedQuery = query.replace("\"", "\\\"").replace("\n", "\\n")
+            sb.append("payload = json.dumps({\n")
+            sb.append("  \"query\": \"$escapedQuery\",\n")
+            sb.append("  \"variables\": $vars\n")
+            sb.append("})\n")
         } else {
             sb.append("payload = {}\n")
         }
@@ -43,6 +60,9 @@ class CodeGenerator {
         if (request.authType == "Bearer Token") {
             val token = resolver.resolve(request.authParams["token"]) ?: ""
             sb.append("  \"Authorization\": \"Bearer $token\",\n")
+        }
+        if (request.bodyType == "GraphQL") {
+            sb.append("  \"Content-Type\": \"application/json\",\n")
         }
         sb.append("}\n\n")
         
@@ -64,13 +84,26 @@ class CodeGenerator {
             val token = resolver.resolve(request.authParams["token"]) ?: ""
             sb.append("myHeaders.append(\"Authorization\", \"Bearer $token\");\n")
         }
+        if (request.bodyType == "GraphQL") {
+            sb.append("myHeaders.append(\"Content-Type\", \"application/json\");\n")
+        }
         
         sb.append("\nconst requestOptions = {\n")
         sb.append("  method: '${request.method}',\n")
         sb.append("  headers: myHeaders,\n")
-        if (request.body != null) {
+        
+        if (request.bodyType == "Raw" && request.body != null) {
             sb.append("  body: JSON.stringify(${request.body}),\n")
+        } else if (request.bodyType == "GraphQL") {
+            val query = resolver.resolve(request.graphqlQuery) ?: ""
+            val vars = resolver.resolve(request.graphqlVariables) ?: "{}"
+            val escapedQuery = query.replace("\"", "\\\"").replace("\n", "\\n")
+            sb.append("  body: JSON.stringify({\n")
+            sb.append("    query: \"$escapedQuery\",\n")
+            sb.append("    variables: $vars\n")
+            sb.append("  }),\n")
         }
+
         sb.append("  redirect: 'follow'\n")
         sb.append("};\n\n")
         

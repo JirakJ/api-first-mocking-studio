@@ -19,6 +19,8 @@ data class ApiRequest(
     val bodyType: String = "Raw",
     val body: String? = null,
     val formData: List<ApiFirstSettings.FormDataParam> = emptyList(),
+    val graphqlQuery: String? = null,
+    val graphqlVariables: String? = null,
     val authType: String = "None",
     val authParams: Map<String, String> = emptyMap()
 )
@@ -105,6 +107,16 @@ class ApiRequestExecutor {
                     current += it.size
                 }
                 HttpRequest.BodyPublishers.ofByteArray(combined)
+            }
+            "GraphQL" -> {
+                builder.header("Content-Type", "application/json")
+                val query = resolver.resolve(request.graphqlQuery) ?: ""
+                val vars = resolver.resolve(request.graphqlVariables) ?: "{}"
+                
+                // Construct a basic JSON payload for GraphQL
+                val escapedQuery = query.replace("\"", "\\\"").replace("\n", "\\n")
+                val payload = "{\"query\": \"$escapedQuery\", \"variables\": $vars}"
+                HttpRequest.BodyPublishers.ofString(payload)
             }
             else -> HttpRequest.BodyPublishers.noBody()
         }

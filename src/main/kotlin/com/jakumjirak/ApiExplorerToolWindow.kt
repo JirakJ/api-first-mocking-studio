@@ -74,12 +74,14 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val authFields = mutableMapOf<String, JBTextField>()
     
     // Body Panel
-    private val bodyTypeCombo = ComboBox(arrayOf("None", "Raw", "Form-Data", "x-www-form-urlencoded"))
+    private val bodyTypeCombo = ComboBox(arrayOf("None", "Raw", "Form-Data", "x-www-form-urlencoded", "GraphQL"))
     private val bodyCardLayout = CardLayout()
     private val bodyCards = JPanel(bodyCardLayout)
     private val reqBodyArea = JBTextArea()
     private val formDataTableModel = DefaultTableModel(arrayOf("Type", "Key", "Value"), 0)
     private val formDataTable = JBTable(formDataTableModel)
+    private val graphqlQueryArea = JBTextArea("query {\n  \n}")
+    private val graphqlVarsArea = JBTextArea("{\n  \n}")
     
     private val assertionsTableModel = DefaultTableModel(arrayOf("Type", "Expected Value"), 0)
     private val assertionsTable = JBTable(assertionsTableModel)
@@ -123,8 +125,14 @@ class ApiExplorerToolWindow(private val project: Project) {
         val typeColumn = formDataTable.columnModel.getColumn(0)
         typeColumn.cellEditor = DefaultCellEditor(ComboBox(arrayOf("Text", "File")))
 
+        val graphqlPanel = OnePixelSplitter(true, 0.7f).apply {
+            firstComponent = JPanel(BorderLayout()).apply { add(JLabel("Query"), BorderLayout.NORTH); add(JBScrollPane(graphqlQueryArea), BorderLayout.CENTER) }
+            secondComponent = JPanel(BorderLayout()).apply { add(JLabel("Variables"), BorderLayout.NORTH); add(JBScrollPane(graphqlVarsArea), BorderLayout.CENTER) }
+        }
+
         bodyCards.add(JPanel(), "None"); bodyCards.add(JBScrollPane(reqBodyArea), "Raw")
         bodyCards.add(JBScrollPane(formDataTable), "Form-Data"); bodyCards.add(JBScrollPane(formDataTable), "x-www-form-urlencoded")
+        bodyCards.add(graphqlPanel, "GraphQL")
         
         val bodyPanel = JPanel(BorderLayout()).apply {
             add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(bodyTypeCombo) }, BorderLayout.NORTH)
@@ -386,7 +394,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         return ApiFirstSettings.SavedRequest(
             name = name, method = methodCombo.selectedItem as String, url = urlField.text.trim(),
             bodyType = bodyTypeCombo.selectedItem as String, body = reqBodyArea.text.takeIf { it.isNotBlank() },
-            formData = formData, headers = getHeadersFromTable().toMutableMap(),
+            formData = formData, graphqlQuery = graphqlQueryArea.text.takeIf { it.isNotBlank() }, graphqlVariables = graphqlVarsArea.text.takeIf { it.isNotBlank() }, headers = getHeadersFromTable().toMutableMap(),
             preRequestScript = reqPreScriptArea.text.takeIf { it.isNotBlank() }, postResponseScript = reqScriptArea.text.takeIf { it.isNotBlank() },
             assertions = assertions, authType = authTypeCombo.selectedItem as String, authParams = authFields.mapValues { it.value.text }.toMutableMap()
         )
@@ -395,6 +403,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private fun loadRequestToEditor(req: ApiFirstSettings.SavedRequest) {
         methodCombo.selectedItem = req.method; urlField.text = req.url
         bodyTypeCombo.selectedItem = req.bodyType; reqBodyArea.text = req.body ?: ""
+        graphqlQueryArea.text = req.graphqlQuery ?: "query {\n  \n}"; graphqlVarsArea.text = req.graphqlVariables ?: "{\n  \n}"
         formDataTableModel.rowCount = 0; req.formData.forEach { formDataTableModel.addRow(arrayOf(it.type, it.key, it.value)) }; formDataTableModel.addRow(arrayOf("Text", "", ""))
         reqPreScriptArea.text = req.preRequestScript ?: ""; reqScriptArea.text = req.postResponseScript ?: ""
         headersTableModel.rowCount = 0; req.headers.forEach { (k, v) -> headersTableModel.addRow(arrayOf(k, v)) }; headersTableModel.addRow(arrayOf("", ""))
@@ -458,7 +467,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         val reqData = createSavedRequest("History Entry"); settings.history.add(reqData); savedRequestsList.add(0, reqData); historyListModel.add(0, "$method $url")
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
-                val request = ApiRequest(method, url, getHeadersFromTable(), reqData.bodyType, reqData.body, reqData.formData, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text })
+                val request = ApiRequest(method, url, getHeadersFromTable(), reqData.bodyType, reqData.body, reqData.formData, reqData.graphqlQuery, reqData.graphqlVariables, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text })
                 val response = executor.execute(request, settings.getActiveVariables())
                 reqScriptArea.text.takeIf { it.isNotBlank() }?.let { scriptEngine.execute(it, response.body) }
                 val results = assertionEngine.verify(response, reqData.assertions)
