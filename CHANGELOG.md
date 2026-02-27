@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.37] - 2026-02-27
+### Added
+- **Dynamic Data Mocking:** The embedded mock server is now fully intelligent. It automatically generates realistic dummy data (JSON payloads) based on the schemas and examples defined in your imported OpenAPI specifications.
+- This provides instant, zero-config backend simulation for frontend and mobile development teams.
+
 ## [2026.2.36] - 2026-02-27
 ### Added
 - **WebSocket Support:** The plugin now intelligently detects `ws://` and `wss://` URLs and switches to a dedicated WebSocket interface.
