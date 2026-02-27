@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026.2.35] - 2026-02-27
+### Added
+- **GraphQL Support:** Introduced native support for GraphQL queries.
+- A dedicated "GraphQL" option in the Body type dropdown provides separate text areas for the Query and JSON Variables.
+- Variables within the GraphQL payload are automatically resolved against the active environment.
+- Code snippets (cURL, Python, JS) now correctly format GraphQL payloads.
+
 ## [2026.2.34] - 2026-02-27
 ### Added
 - **Cookie Manager:** Added a dedicated dialog to view and manage cookies accumulated during API sessions.
