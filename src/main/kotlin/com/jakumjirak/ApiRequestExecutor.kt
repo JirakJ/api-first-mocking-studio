@@ -48,6 +48,10 @@ class ApiRequestExecutor {
         .cookieHandler(cookieManager)
         .build()
 
+    fun getCookies(): List<java.net.HttpCookie> = cookieManager.cookieStore.cookies
+
+    fun clearCookies() = cookieManager.cookieStore.removeAll()
+
     fun execute(request: ApiRequest, variables: Map<String, String>): ApiResponse {
         val resolver = VariableResolver(variables)
         val resolvedUrl = resolver.resolve(request.url) ?: request.url

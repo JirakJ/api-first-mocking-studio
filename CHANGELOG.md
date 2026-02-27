@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.34] - 2026-02-27
+### Added
+- **Cookie Manager:** Added a dedicated dialog to view and manage cookies accumulated during API sessions.
+- Accessible via a new folder icon in the main toolbar. You can inspect cookie details (Domain, Name, Value, Secure flag) and clear all cookies to reset your session state.
+
 ## [2026.2.33] - 2026-02-27
 ### Added
 - **Postman Collection Import:** You can now natively import Postman Collections (v2.1 JSON format) directly into your workspace.
