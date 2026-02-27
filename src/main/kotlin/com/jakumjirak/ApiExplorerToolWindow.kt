@@ -14,6 +14,9 @@ import com.intellij.openapi.ui.popup.PopupStep
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.ui.LanguageTextField
+import com.intellij.lang.Language
+import com.intellij.openapi.fileTypes.PlainTextLanguage
 import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.*
@@ -77,22 +80,23 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val bodyTypeCombo = ComboBox(arrayOf("None", "Raw", "Form-Data", "x-www-form-urlencoded", "GraphQL"))
     private val bodyCardLayout = CardLayout()
     private val bodyCards = JPanel(bodyCardLayout)
-    private val reqBodyArea = JBTextArea()
+    private val reqBodyArea = LanguageTextField(Language.findLanguageByID("JSON") ?: PlainTextLanguage.INSTANCE, project, "", false)
     private val formDataTableModel = DefaultTableModel(arrayOf("Type", "Key", "Value"), 0)
     private val formDataTable = JBTable(formDataTableModel)
-    private val graphqlQueryArea = JBTextArea("query {\n  \n}")
-    private val graphqlVarsArea = JBTextArea("{\n  \n}")
+    private val graphqlQueryArea = LanguageTextField(Language.findLanguageByID("GraphQL") ?: PlainTextLanguage.INSTANCE, project, "query {\n  \n}", false)
+    private val graphqlVarsArea = LanguageTextField(Language.findLanguageByID("JSON") ?: PlainTextLanguage.INSTANCE, project, "{\n  \n}", false)
     
     private val assertionsTableModel = DefaultTableModel(arrayOf("Type", "Expected Value"), 0)
     private val assertionsTable = JBTable(assertionsTableModel)
     private val snippetLanguageCombo = ComboBox(arrayOf("cURL", "Python (Requests)", "JavaScript (Fetch)"))
-    private val snippetTextArea = JBTextArea()
-    private val reqPreScriptArea = JBTextArea("// Pre-request logic")
-    private val reqScriptArea = JBTextArea("// Post-response logic")
+    private val snippetTextArea = LanguageTextField(PlainTextLanguage.INSTANCE, project, "", false).apply { isViewer = true }
+    private val reqPreScriptArea = LanguageTextField(Language.findLanguageByID("JavaScript") ?: PlainTextLanguage.INSTANCE, project, "// Example: timestamp={{\$timestamp}}\n// Or: my_var=fixed_value", false)
+    private val reqScriptArea = LanguageTextField(Language.findLanguageByID("JavaScript") ?: PlainTextLanguage.INSTANCE, project, "// Example: auth_token=$.token", false)
     private val reqTabs = JBTabbedPane()
     
     // Response Components
-    private val responseArea = JBTextArea(); private val resHeadersArea = JBTextArea(); private val testResultsArea = JBTextArea()
+    private val responseArea = LanguageTextField(Language.findLanguageByID("JSON") ?: PlainTextLanguage.INSTANCE, project, "", false).apply { isViewer = true }
+    private val resHeadersArea = JBTextArea(); private val testResultsArea = JBTextArea()
     private val responseTree = Tree(DefaultTreeModel(DefaultMutableTreeNode("Response")))
     private val resTabs = JBTabbedPane()
     private val statusLabel = JBLabel("Ready")
@@ -157,7 +161,7 @@ class ApiExplorerToolWindow(private val project: Project) {
 
         val requestPanel = JPanel(BorderLayout()).apply { add(topBar, BorderLayout.NORTH); add(reqTabs, BorderLayout.CENTER) }
         
-        responseArea.isEditable = false; resHeadersArea.isEditable = false; testResultsArea.isEditable = false
+        resHeadersArea.isEditable = false; testResultsArea.isEditable = false
         responseArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         resHeadersArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         testResultsArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
@@ -319,7 +323,7 @@ class ApiExplorerToolWindow(private val project: Project) {
 
     private fun createSnippetPanel() = JPanel(BorderLayout()).apply {
         add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Language: ")); add(snippetLanguageCombo) }, BorderLayout.NORTH)
-        snippetTextArea.isEditable = false; snippetTextArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
+        snippetTextArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         add(JBScrollPane(snippetTextArea), BorderLayout.CENTER)
     }
 
