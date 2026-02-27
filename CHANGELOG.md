@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.36] - 2026-02-27
+### Added
+- **WebSocket Support:** The plugin now intelligently detects `ws://` and `wss://` URLs and switches to a dedicated WebSocket interface.
+- Includes a real-time message log showing sent and received messages, and a connection status indicator.
+
 ## [2026.2.35] - 2026-02-27
 ### Added
 - **GraphQL Support:** Introduced native support for GraphQL queries.
