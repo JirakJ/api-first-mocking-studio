@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.39] - 2026-02-27
+### Added
+- **OAuth 2.0 Support:** Added native support for the OAuth 2.0 Client Credentials flow directly within the Auth tab.
+- Users can input their Access Token URL, Client ID, Client Secret, and Scope, and generate a token with a single click without leaving the IDE.
+
 ## [2026.2.38] - 2026-02-27
 ### Added
 - **Syntax Highlighting & Native Editor:** Replaced standard text areas with native IntelliJ `LanguageTextField` components.

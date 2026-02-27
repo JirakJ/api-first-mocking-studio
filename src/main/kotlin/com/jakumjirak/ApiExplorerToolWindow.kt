@@ -72,7 +72,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val paramsTable = JBTable(paramsTableModel)
     private val headersTableModel = DefaultTableModel(arrayOf("Key", "Value"), 0)
     private val headersTable = JBTable(headersTableModel)
-    private val authTypeCombo = ComboBox(arrayOf("None", "Bearer Token", "Basic Auth", "API Key"))
+    private val authTypeCombo = ComboBox(arrayOf("None", "Bearer Token", "Basic Auth", "API Key", "OAuth 2.0"))
     private val authFieldsPanel = JPanel(VerticalLayout(5))
     private val authFields = mutableMapOf<String, JBTextField>()
     
@@ -333,6 +333,22 @@ class ApiExplorerToolWindow(private val project: Project) {
             "Bearer Token" -> addAuthField("token", "Token")
             "Basic Auth" -> { addAuthField("username", "Username"); addAuthField("password", "Password") }
             "API Key" -> { addAuthField("key", "Key"); addAuthField("value", "Value"); addAuthField("addTo", "Add to", "Header") }
+            "OAuth 2.0" -> {
+                addAuthField("accessTokenUrl", "Access Token URL")
+                addAuthField("clientId", "Client ID")
+                addAuthField("clientSecret", "Client Secret")
+                addAuthField("scope", "Scope")
+                
+                val btnPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+                val fetchBtn = JButton("Fetch Token")
+                fetchBtn.addActionListener {
+                    fetchOAuthToken()
+                }
+                btnPanel.add(fetchBtn)
+                authFieldsPanel.add(btnPanel)
+                
+                addAuthField("token", "Fetched Token") // Hidden or read-only usually, but editable for manual override
+            }
         }
         authFieldsPanel.revalidate(); authFieldsPanel.repaint()
     }
@@ -340,6 +356,59 @@ class ApiExplorerToolWindow(private val project: Project) {
     private fun addAuthField(id: String, label: String, default: String = "") {
         val p = JPanel(BorderLayout(5, 0)); p.add(JLabel("$label: "), BorderLayout.WEST)
         val tf = JBTextField(default); authFields[id] = tf; p.add(tf, BorderLayout.CENTER); authFieldsPanel.add(p)
+    }
+
+    private fun fetchOAuthToken() {
+        val url = authFields["accessTokenUrl"]?.text ?: return
+        val clientId = authFields["clientId"]?.text ?: return
+        val clientSecret = authFields["clientSecret"]?.text ?: return
+        val scope = authFields["scope"]?.text ?: ""
+        
+        val settings = ApiFirstSettings.getInstance(project)
+        val vars = settings.getActiveVariables()
+        val resolver = VariableResolver(vars)
+        
+        val resolvedUrl = resolver.resolve(url) ?: url
+        val resolvedId = resolver.resolve(clientId) ?: clientId
+        val resolvedSecret = resolver.resolve(clientSecret) ?: clientSecret
+        val resolvedScope = resolver.resolve(scope) ?: scope
+
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                val formData = mutableListOf<ApiFirstSettings.FormDataParam>()
+                formData.add(ApiFirstSettings.FormDataParam("grant_type", "client_credentials"))
+                formData.add(ApiFirstSettings.FormDataParam("client_id", resolvedId))
+                formData.add(ApiFirstSettings.FormDataParam("client_secret", resolvedSecret))
+                if (resolvedScope.isNotEmpty()) {
+                    formData.add(ApiFirstSettings.FormDataParam("scope", resolvedScope))
+                }
+                
+                val req = ApiRequest(
+                    method = "POST",
+                    url = resolvedUrl,
+                    bodyType = "x-www-form-urlencoded",
+                    formData = formData
+                )
+                
+                val response = executor.execute(req, vars)
+                if (response.statusCode in 200..299) {
+                    val json = JsonParser.parseString(response.body).asJsonObject
+                    if (json.has("access_token")) {
+                        val token = json.get("access_token").asString
+                        ApplicationManager.getApplication().invokeLater {
+                            authFields["token"]?.text = token
+                            Messages.showInfoMessage(project, "Token fetched successfully.", "OAuth 2.0")
+                        }
+                    } else {
+                        ApplicationManager.getApplication().invokeLater { Messages.showErrorDialog(project, "Response did not contain access_token.", "OAuth 2.0 Error") }
+                    }
+                } else {
+                    ApplicationManager.getApplication().invokeLater { Messages.showErrorDialog(project, "Failed to fetch token. Status: ${response.statusCode}\n\n${response.body}", "OAuth 2.0 Error") }
+                }
+            } catch (e: Exception) {
+                ApplicationManager.getApplication().invokeLater { Messages.showErrorDialog(project, "Error: ${e.message}", "OAuth 2.0 Error") }
+            }
+        }
     }
 
     private fun checkWsUrl() {
