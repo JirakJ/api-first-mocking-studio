@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.38] - 2026-02-27
+### Added
+- **Syntax Highlighting & Native Editor:** Replaced standard text areas with native IntelliJ `LanguageTextField` components.
+- Request Body, Response Body, Pre-scripts, Post-scripts, and GraphQL views now support rich syntax highlighting, making complex JSON and scripts significantly easier to read and edit.
+
 ## [2026.2.37] - 2026-02-27
 ### Added
 - **Dynamic Data Mocking:** The embedded mock server is now fully intelligent. It automatically generates realistic dummy data (JSON payloads) based on the schemas and examples defined in your imported OpenAPI specifications.
