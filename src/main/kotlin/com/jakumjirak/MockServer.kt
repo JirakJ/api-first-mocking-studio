@@ -17,17 +17,19 @@ class MockServer {
     fun start(port: Int, openApi: OpenAPI) {
         stop() // Ensure previous instance is stopped
         
+        val dataGenerator = OpenApiDataGenerator(openApi)
+
         server = embeddedServer(Netty, port = port) {
             routing {
                 openApi.paths?.forEach { (path, pathItem) ->
-                    val cleanPath = path.replace("{", ":").replace("}", "")
+                    val cleanPath = path.replace(Regex("\\{([^}]+)\\}"), "{$1}")
                     
                     pathItem.readOperationsMap().forEach { (method, operation) ->
                         route(cleanPath, io.ktor.http.HttpMethod.parse(method.name)) {
                             handle {
-                                // Basic logic: return 200 and a dummy JSON
+                                val responseJson = dataGenerator.generateForOperation(operation)
                                 call.respondText(
-                                    """{"message": "Mocked response for ${operation.operationId ?: path}"}""",
+                                    responseJson,
                                     io.ktor.http.ContentType.Application.Json
                                 )
                             }
