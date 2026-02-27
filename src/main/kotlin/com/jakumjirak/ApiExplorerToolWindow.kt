@@ -179,7 +179,7 @@ class ApiExplorerToolWindow(private val project: Project) {
             updateCollectionsTree(settings)
         }
         
-        decorator.addExtraAction(object : AnAction("Import OpenAPI", "Import from file", AllIcons.Actions.Download) {
+        decorator.addExtraAction(object : AnAction("Import OpenAPI", "Import from OpenAPI file", AllIcons.Actions.Download) {
             override fun actionPerformed(e: AnActionEvent) {
                 val descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
                 val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
@@ -189,7 +189,31 @@ class ApiExplorerToolWindow(private val project: Project) {
                         settings.collections.add(collection); updateCollectionsTree(settings)
                         Messages.showInfoMessage(project, "Imported ${collection.requests.size} requests.", "Success")
                     } else {
-                        Messages.showErrorDialog(project, "Failed to parse file.", "Error")
+                        Messages.showErrorDialog(project, "Failed to parse OpenAPI file.", "Error")
+                    }
+                }
+            }
+        })
+        
+        decorator.addExtraAction(object : AnAction("Import Collection", "Import collection from JSON", AllIcons.ToolbarDecorator.Import) {
+            override fun actionPerformed(e: AnActionEvent) {
+                val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+                val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
+                if (file != null) {
+                    try {
+                        val json = File(file.path).readText()
+                        val gson = GsonBuilder().create()
+                        val collection = gson.fromJson(json, ApiFirstSettings.Collection::class.java)
+                        
+                        if (collection != null && collection.name.isNotEmpty()) {
+                            settings.collections.add(collection)
+                            updateCollectionsTree(settings)
+                            Messages.showInfoMessage(project, "Successfully imported collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")
+                        } else {
+                            Messages.showErrorDialog(project, "The selected file does not appear to be a valid exported Collection.", "Import Error")
+                        }
+                    } catch (ex: Exception) {
+                        Messages.showErrorDialog(project, "Error reading or parsing file: ${ex.message}", "Import Error")
                     }
                 }
             }

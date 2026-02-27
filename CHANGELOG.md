@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.32] - 2026-02-27
+### Added
+- **Import Collections from JSON:** Added the ability to import a collection from a previously exported JSON file.
+- This feature is available via a new "Import" icon in the Collections sidebar toolbar, allowing seamless sharing of collections between team members or different IDE instances.
+
 ## [2026.2.31] - 2026-02-27
 ### Added
 - **Export Collections:** Added the ability to export an entire collection (including all its requests, assertions, and scripts) to a single JSON file.
