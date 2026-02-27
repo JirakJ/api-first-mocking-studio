@@ -8,6 +8,9 @@ import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.ui.popup.PopupStep
+import com.intellij.openapi.ui.popup.util.BaseListPopupStep
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.OnePixelSplitter
@@ -214,15 +217,31 @@ class ApiExplorerToolWindow(private val project: Project) {
         authTypeCombo.addActionListener { updateAuthFields(); refreshSnippets() }
         bodyTypeCombo.addActionListener { bodyCardLayout.show(bodyCards, bodyTypeCombo.selectedItem as String); refreshSnippets() }
         snippetLanguageCombo.addActionListener { refreshSnippets() }
+        
         saveToCollectionButton.addActionListener {
-            val names = settings.collections.map { it.name }.toTypedArray()
+            val names = settings.collections.map { it.name }
             if (names.isEmpty()) return@addActionListener Messages.showInfoMessage(project, "Create collection first", "Save")
-            val sel = Messages.showChooseDialog(project, "Select Collection:", "Save", null, names, names[0])
-            if (sel != -1) {
-                val reqName = Messages.showInputDialog(project, "Request Name:", "Save", null)
-                if (!reqName.isNullOrBlank()) { settings.collections[sel].requests.add(createSavedRequest(reqName)); updateCollectionsTree(settings) }
+            
+            val step = object : BaseListPopupStep<String>("Select Collection", names) {
+                override fun onChosen(selectedValue: String?, finalChoice: Boolean): PopupStep<*>? {
+                    if (finalChoice && selectedValue != null) {
+                        val collectionIndex = settings.collections.indexOfFirst { it.name == selectedValue }
+                        if (collectionIndex != -1) {
+                            ApplicationManager.getApplication().invokeLater {
+                                val reqName = Messages.showInputDialog(project, "Request Name:", "Save", null)
+                                if (!reqName.isNullOrBlank()) {
+                                    settings.collections[collectionIndex].requests.add(createSavedRequest(reqName))
+                                    updateCollectionsTree(settings)
+                                }
+                            }
+                        }
+                    }
+                    return FINAL_CHOICE
+                }
             }
+            JBPopupFactory.getInstance().createListPopup(step).showUnderneathOf(saveToCollectionButton)
         }
+
         urlField.document.addDocumentListener(object : DocumentListener {
             override fun insertUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }
             override fun removeUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }

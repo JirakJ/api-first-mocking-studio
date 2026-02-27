@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026.2.30] - 2026-02-26
+### Fixed
+- Replaced deprecated `Messages.showChooseDialog` with modern `JBPopupFactory` list popup for collection selection.
+
 ## [2026.2.29] - 2026-02-26
 ### Added
 - **Multipart File Upload Support:** Form-data parameters now support a "File" type.
