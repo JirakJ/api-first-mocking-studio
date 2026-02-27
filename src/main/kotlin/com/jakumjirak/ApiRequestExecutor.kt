@@ -133,7 +133,7 @@ class ApiRequestExecutor {
 
     private fun applyAuth(builder: HttpRequest.Builder, request: ApiRequest, resolver: VariableResolver) {
         when (request.authType) {
-            "Bearer Token" -> {
+            "Bearer Token", "OAuth 2.0" -> {
                 val token = resolver.resolve(request.authParams["token"]) ?: ""
                 if (token.isNotEmpty()) builder.header("Authorization", "Bearer $token")
             }
