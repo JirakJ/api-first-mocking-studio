@@ -1,5 +1,10 @@
 # Changelog
 
+## [2026.2.31] - 2026-02-27
+### Added
+- **Export Collections:** Added the ability to export an entire collection (including all its requests, assertions, and scripts) to a single JSON file.
+- This feature is available via a new "Export to JSON" icon in the Collections sidebar toolbar, enabling easy sharing and backups.
+
 ## [2026.2.30] - 2026-02-26
 ### Fixed
 - Replaced deprecated `Messages.showChooseDialog` with modern `JBPopupFactory` list popup for collection selection.

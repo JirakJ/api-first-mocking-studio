@@ -5,6 +5,7 @@ import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.fileChooser.FileChooserFactory
+import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.Messages
@@ -25,6 +26,7 @@ import com.google.gson.*
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.FlowLayout
+import java.io.File
 import java.net.URLDecoder
 import java.net.URLEncoder
 import javax.swing.*
@@ -192,6 +194,34 @@ class ApiExplorerToolWindow(private val project: Project) {
                 }
             }
         })
+        
+        decorator.addExtraAction(object : AnAction("Export Collection", "Export to JSON", AllIcons.ToolbarDecorator.Export) {
+            override fun actionPerformed(e: AnActionEvent) {
+                val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                val userObj = node?.userObject
+                if (userObj !is ApiFirstSettings.Collection) {
+                    Messages.showInfoMessage(project, "Please select a Collection folder to export.", "Export Collection")
+                    return
+                }
+                
+                val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON", "json")
+                val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
+                val wrapper = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, "${userObj.name.replace(" ", "_")}.json")
+                
+                if (wrapper != null) {
+                    try {
+                        val file = wrapper.file
+                        val gson = GsonBuilder().setPrettyPrinting().create()
+                        val json = gson.toJson(userObj)
+                        file.writeText(json)
+                        Messages.showInfoMessage(project, "Collection exported successfully.", "Export Complete")
+                    } catch (ex: Exception) {
+                        Messages.showErrorDialog(project, "Error exporting collection: ${ex.message}", "Export Error")
+                    }
+                }
+            }
+        })
+        
         add(decorator.createPanel(), BorderLayout.CENTER)
     }
 
