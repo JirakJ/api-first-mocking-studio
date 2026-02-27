@@ -61,6 +61,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val sendButton = JButton("Send")
     private val envCombo = ComboBox<String>()
     private val manageEnvButton = JButton(AllIcons.General.Settings)
+    private val manageCookiesButton = JButton("Cookies", AllIcons.Nodes.WebFolder)
     private val saveToCollectionButton = JButton(AllIcons.Actions.MenuSaveall)
     
     // Request Tabs
@@ -108,7 +109,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         
         val topBar = JPanel(BorderLayout(5, 0)).apply {
             border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
-            val left = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { add(envCombo); add(manageEnvButton); add(Box.createHorizontalStrut(5)); add(methodCombo) }
+            val left = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { add(envCombo); add(manageEnvButton); add(manageCookiesButton); add(Box.createHorizontalStrut(5)); add(methodCombo) }
             add(left, BorderLayout.WEST); add(urlField, BorderLayout.CENTER)
             val right = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0)).apply { add(saveToCollectionButton); add(sendButton) }
             add(right, BorderLayout.EAST)
@@ -285,6 +286,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         val settings = ApiFirstSettings.getInstance(project)
         envCombo.addActionListener { settings.activeEnvironmentName = if (envCombo.selectedItem == "No Environment") null else envCombo.selectedItem as String; refreshSnippets() }
         manageEnvButton.addActionListener { if (ManageEnvironmentsDialog(project, settings).showAndGet()) updateEnvCombo(settings) }
+        manageCookiesButton.addActionListener { CookieManagerDialog(project, executor).showAndGet() }
         authTypeCombo.addActionListener { updateAuthFields(); refreshSnippets() }
         bodyTypeCombo.addActionListener { bodyCardLayout.show(bodyCards, bodyTypeCombo.selectedItem as String); refreshSnippets() }
         snippetLanguageCombo.addActionListener { refreshSnippets() }
@@ -456,7 +458,8 @@ class ApiExplorerToolWindow(private val project: Project) {
         val reqData = createSavedRequest("History Entry"); settings.history.add(reqData); savedRequestsList.add(0, reqData); historyListModel.add(0, "$method $url")
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
-                val response = executor.execute(ApiRequest(method, url, getHeadersFromTable(), reqData.bodyType, reqData.body, reqData.formData, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text }), settings.getActiveVariables())
+                val request = ApiRequest(method, url, getHeadersFromTable(), reqData.bodyType, reqData.body, reqData.formData, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text })
+                val response = executor.execute(request, settings.getActiveVariables())
                 reqScriptArea.text.takeIf { it.isNotBlank() }?.let { scriptEngine.execute(it, response.body) }
                 val results = assertionEngine.verify(response, reqData.assertions)
                 ApplicationManager.getApplication().invokeLater {
