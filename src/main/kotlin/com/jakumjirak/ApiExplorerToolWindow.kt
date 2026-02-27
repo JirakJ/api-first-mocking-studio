@@ -91,11 +91,23 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val reqScriptArea = JBTextArea("// Post-response logic")
     private val reqTabs = JBTabbedPane()
     
-    // Response
+    // Response Components
     private val responseArea = JBTextArea(); private val resHeadersArea = JBTextArea(); private val testResultsArea = JBTextArea()
     private val responseTree = Tree(DefaultTreeModel(DefaultMutableTreeNode("Response")))
+    private val resTabs = JBTabbedPane()
     private val statusLabel = JBLabel("Ready")
     
+    // WebSocket Components
+    private val wsMessageArea = JBTextArea()
+    private val wsLogArea = JBTextArea()
+    private val wsSendButton = JButton("Send Message")
+    private val wsDisconnectButton = JButton("Disconnect")
+    private val wsPanel = JPanel(BorderLayout())
+    private lateinit var wsManager: WebSocketManager
+    
+    private val editorCardLayout = CardLayout()
+    private val editorCards = JPanel(editorCardLayout)
+
     private val executor = ApiRequestExecutor(); private val preScriptEngine = PreRequestScriptEngine(project)
     private val scriptEngine = ResponseScriptEngine(project); private val assertionEngine = AssertionEngine()
     private val jsonTreeBuilder = JsonTreeModelBuilder(); private val codeGenerator = CodeGenerator()
@@ -143,25 +155,160 @@ class ApiExplorerToolWindow(private val project: Project) {
         reqTabs.addTab("Body", bodyPanel); reqTabs.addTab("Headers", JBScrollPane(headersTable)); reqTabs.addTab("Tests", JBScrollPane(assertionsTable))
         reqTabs.addTab("Snippets", createSnippetPanel()); reqTabs.addTab("Post-Script", JBScrollPane(reqScriptArea))
 
-        val responsePanel = JBTabbedPane().apply {
-            addTab("Body", JBScrollPane(responseArea)); addTab("Tree", JBScrollPane(responseTree))
-            addTab("Headers", JBScrollPane(resHeadersArea)); addTab("Test Results", JBScrollPane(testResultsArea))
-        }
-        
-        val mainSplitter = OnePixelSplitter(false, 0.2f).apply {
-            val sidebar = JBTabbedPane().apply { addTab("History", JBScrollPane(historyList)); addTab("Collections", createCollectionsPanel(settings)) }
-            firstComponent = sidebar
-            secondComponent = OnePixelSplitter(true, 0.5f).apply {
-                firstComponent = JPanel(BorderLayout()).apply { add(topBar, BorderLayout.NORTH); add(reqTabs, BorderLayout.CENTER) }
-                secondComponent = JPanel(BorderLayout()).apply { add(responsePanel, BorderLayout.CENTER); add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(statusLabel) }, BorderLayout.SOUTH) }
-            }
-        }
-        panel.add(mainSplitter, BorderLayout.CENTER)
+        val requestPanel = JPanel(BorderLayout()).apply { add(topBar, BorderLayout.NORTH); add(reqTabs, BorderLayout.CENTER) }
         
         responseArea.isEditable = false; resHeadersArea.isEditable = false; testResultsArea.isEditable = false
         responseArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         resHeadersArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         testResultsArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
+        
+        resTabs.addTab("Body", JBScrollPane(responseArea)); resTabs.addTab("Tree", JBScrollPane(responseTree))
+        resTabs.addTab("Headers", JBScrollPane(resHeadersArea)); resTabs.addTab("Test Results", JBScrollPane(testResultsArea))
+
+        val responsePanel = JPanel(BorderLayout()).apply { add(resTabs, BorderLayout.CENTER); add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(statusLabel) }, BorderLayout.SOUTH) }
+        val restEditorSplitter = OnePixelSplitter(true, 0.5f).apply { firstComponent = requestPanel; secondComponent = responsePanel }
+        
+        // Setup WebSocket UI
+        wsLogArea.isEditable = false
+        wsLogArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
+        val wsInputPanel = JPanel(BorderLayout()).apply {
+            add(JBScrollPane(wsMessageArea), BorderLayout.CENTER)
+            val btnPanel = JPanel(FlowLayout(FlowLayout.RIGHT)).apply { add(wsDisconnectButton); add(wsSendButton) }
+            add(btnPanel, BorderLayout.SOUTH)
+        }
+        val wsSplitter = OnePixelSplitter(true, 0.7f).apply {
+            firstComponent = JBScrollPane(wsLogArea)
+            secondComponent = wsInputPanel
+        }
+        wsPanel.add(wsSplitter, BorderLayout.CENTER)
+        
+        editorCards.add(restEditorSplitter, "REST")
+        editorCards.add(wsPanel, "WS")
+        
+        wsManager = WebSocketManager(
+            onMessage = { msg, isSent ->
+                val prefix = if (isSent) "-> " else "<- "
+                wsLogArea.append("\n$prefix$msg")
+                wsLogArea.caretPosition = wsLogArea.document.length
+            },
+            onStatusChange = { connected, status ->
+                wsLogArea.append("\n[SYSTEM] $status")
+                wsLogArea.caretPosition = wsLogArea.document.length
+                wsSendButton.isEnabled = connected
+                wsDisconnectButton.isEnabled = connected
+                sendButton.text = if (connected) "Connected" else "Connect"
+                sendButton.isEnabled = !connected
+            }
+        )
+        wsSendButton.isEnabled = false
+        wsDisconnectButton.isEnabled = false
+        
+        val sidebarTabs = JBTabbedPane(); sidebarTabs.addTab("History", JBScrollPane(historyList))
+        val collectionsPanel = JPanel(BorderLayout()).apply {
+            val decorator = ToolbarDecorator.createDecorator(collectionsTree).setAddAction {
+                val name = Messages.showInputDialog(project, "Collection Name:", "New", null)
+                if (!name.isNullOrBlank()) { settings.collections.add(ApiFirstSettings.Collection(name)); updateCollectionsTree(settings) }
+            }.setRemoveAction {
+                val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                val userObj = node?.userObject
+                if (userObj is ApiFirstSettings.Collection) settings.collections.remove(userObj)
+                else if (userObj is ApiFirstSettings.SavedRequest) (node.parent as? DefaultMutableTreeNode)?.let { (it.userObject as? ApiFirstSettings.Collection)?.requests?.remove(userObj) }
+                updateCollectionsTree(settings)
+            }
+            
+            decorator.addExtraAction(object : AnAction("Import OpenAPI", "Import from OpenAPI file", AllIcons.Actions.Download) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    val descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
+                    val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
+                    if (file != null) {
+                        val collection = importer.importOpenApi(file.path)
+                        if (collection != null) {
+                            settings.collections.add(collection); updateCollectionsTree(settings)
+                            Messages.showInfoMessage(project, "Imported ${collection.requests.size} requests.", "Success")
+                        } else {
+                            Messages.showErrorDialog(project, "Failed to parse OpenAPI file.", "Error")
+                        }
+                    }
+                }
+            })
+
+            decorator.addExtraAction(object : AnAction("Import Postman Collection", "Import from Postman v2.1 JSON", AllIcons.ToolbarDecorator.Import) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+                    val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
+                    if (file != null) {
+                        val collection = importer.importPostmanCollection(file.path)
+                        if (collection != null && collection.requests.isNotEmpty()) {
+                            settings.collections.add(collection)
+                            updateCollectionsTree(settings)
+                            Messages.showInfoMessage(project, "Successfully imported Postman Collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")
+                        } else {
+                            Messages.showErrorDialog(project, "The selected file does not appear to be a valid Postman Collection (v2.1).", "Import Error")
+                        }
+                    }
+                }
+            })
+            
+            decorator.addExtraAction(object : AnAction("Import Collection", "Import collection from JSON", AllIcons.ToolbarDecorator.Import) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+                    val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
+                    if (file != null) {
+                        try {
+                            val json = File(file.path).readText()
+                            val gson = GsonBuilder().create()
+                            val collection = gson.fromJson(json, ApiFirstSettings.Collection::class.java)
+                            
+                            if (collection != null && collection.name.isNotEmpty()) {
+                                settings.collections.add(collection)
+                                updateCollectionsTree(settings)
+                                Messages.showInfoMessage(project, "Successfully imported collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")
+                            } else {
+                                Messages.showErrorDialog(project, "The selected file does not appear to be a valid exported Collection.", "Import Error")
+                            }
+                        } catch (ex: Exception) {
+                            Messages.showErrorDialog(project, "Error reading or parsing file: ${ex.message}", "Import Error")
+                        }
+                    }
+                }
+            })
+            
+            decorator.addExtraAction(object : AnAction("Export Collection", "Export to JSON", AllIcons.ToolbarDecorator.Export) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                    val userObj = node?.userObject
+                    if (userObj !is ApiFirstSettings.Collection) {
+                        Messages.showInfoMessage(project, "Please select a Collection folder to export.", "Export Collection")
+                        return
+                    }
+                    
+                    val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON", "json")
+                    val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
+                    val wrapper = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, "${userObj.name.replace(" ", "_")}.json")
+                    
+                    if (wrapper != null) {
+                        try {
+                            val file = wrapper.file
+                            val gson = GsonBuilder().setPrettyPrinting().create()
+                            val json = gson.toJson(userObj)
+                            file.writeText(json)
+                            Messages.showInfoMessage(project, "Collection exported successfully.", "Export Complete")
+                        } catch (ex: Exception) {
+                            Messages.showErrorDialog(project, "Error exporting collection: ${ex.message}", "Export Error")
+                        }
+                    }
+                }
+            })
+            
+            add(decorator.createPanel(), BorderLayout.CENTER)
+        }
+        sidebarTabs.addTab("Collections", collectionsPanel)
+        
+        val mainSplitter = OnePixelSplitter(false, 0.2f).apply {
+            firstComponent = sidebarTabs
+            secondComponent = editorCards
+        }
+        panel.add(mainSplitter, BorderLayout.CENTER)
     }
 
     private fun createAuthPanel() = JPanel(BorderLayout()).apply {
@@ -174,105 +321,6 @@ class ApiExplorerToolWindow(private val project: Project) {
         add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(JLabel("Language: ")); add(snippetLanguageCombo) }, BorderLayout.NORTH)
         snippetTextArea.isEditable = false; snippetTextArea.background = com.intellij.util.ui.UIUtil.getTextFieldBackground()
         add(JBScrollPane(snippetTextArea), BorderLayout.CENTER)
-    }
-
-    private fun createCollectionsPanel(settings: ApiFirstSettings) = JPanel(BorderLayout()).apply {
-        val decorator = ToolbarDecorator.createDecorator(collectionsTree).setAddAction {
-            val name = Messages.showInputDialog(project, "Collection Name:", "New", null)
-            if (!name.isNullOrBlank()) { settings.collections.add(ApiFirstSettings.Collection(name)); updateCollectionsTree(settings) }
-        }.setRemoveAction {
-            val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode
-            val userObj = node?.userObject
-            if (userObj is ApiFirstSettings.Collection) settings.collections.remove(userObj)
-            else if (userObj is ApiFirstSettings.SavedRequest) (node.parent as? DefaultMutableTreeNode)?.let { (it.userObject as? ApiFirstSettings.Collection)?.requests?.remove(userObj) }
-            updateCollectionsTree(settings)
-        }
-        
-        decorator.addExtraAction(object : AnAction("Import OpenAPI", "Import from OpenAPI file", AllIcons.Actions.Download) {
-            override fun actionPerformed(e: AnActionEvent) {
-                val descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
-                val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
-                if (file != null) {
-                    val collection = importer.importOpenApi(file.path)
-                    if (collection != null) {
-                        settings.collections.add(collection); updateCollectionsTree(settings)
-                        Messages.showInfoMessage(project, "Imported ${collection.requests.size} requests.", "Success")
-                    } else {
-                        Messages.showErrorDialog(project, "Failed to parse OpenAPI file.", "Error")
-                    }
-                }
-            }
-        })
-
-        decorator.addExtraAction(object : AnAction("Import Postman Collection", "Import from Postman v2.1 JSON", AllIcons.ToolbarDecorator.Import) {
-            override fun actionPerformed(e: AnActionEvent) {
-                val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
-                val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
-                if (file != null) {
-                    val collection = importer.importPostmanCollection(file.path)
-                    if (collection != null && collection.requests.isNotEmpty()) {
-                        settings.collections.add(collection)
-                        updateCollectionsTree(settings)
-                        Messages.showInfoMessage(project, "Successfully imported Postman Collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")
-                    } else {
-                        Messages.showErrorDialog(project, "The selected file does not appear to be a valid Postman Collection (v2.1).", "Import Error")
-                    }
-                }
-            }
-        })
-        
-        decorator.addExtraAction(object : AnAction("Import Collection", "Import collection from JSON", AllIcons.ToolbarDecorator.Import) {
-            override fun actionPerformed(e: AnActionEvent) {
-                val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
-                val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
-                if (file != null) {
-                    try {
-                        val json = File(file.path).readText()
-                        val gson = GsonBuilder().create()
-                        val collection = gson.fromJson(json, ApiFirstSettings.Collection::class.java)
-                        
-                        if (collection != null && collection.name.isNotEmpty()) {
-                            settings.collections.add(collection)
-                            updateCollectionsTree(settings)
-                            Messages.showInfoMessage(project, "Successfully imported collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")
-                        } else {
-                            Messages.showErrorDialog(project, "The selected file does not appear to be a valid exported Collection.", "Import Error")
-                        }
-                    } catch (ex: Exception) {
-                        Messages.showErrorDialog(project, "Error reading or parsing file: ${ex.message}", "Import Error")
-                    }
-                }
-            }
-        })
-        
-        decorator.addExtraAction(object : AnAction("Export Collection", "Export to JSON", AllIcons.ToolbarDecorator.Export) {
-            override fun actionPerformed(e: AnActionEvent) {
-                val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode
-                val userObj = node?.userObject
-                if (userObj !is ApiFirstSettings.Collection) {
-                    Messages.showInfoMessage(project, "Please select a Collection folder to export.", "Export Collection")
-                    return
-                }
-                
-                val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON", "json")
-                val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
-                val wrapper = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, "${userObj.name.replace(" ", "_")}.json")
-                
-                if (wrapper != null) {
-                    try {
-                        val file = wrapper.file
-                        val gson = GsonBuilder().setPrettyPrinting().create()
-                        val json = gson.toJson(userObj)
-                        file.writeText(json)
-                        Messages.showInfoMessage(project, "Collection exported successfully.", "Export Complete")
-                    } catch (ex: Exception) {
-                        Messages.showErrorDialog(project, "Error exporting collection: ${ex.message}", "Export Error")
-                    }
-                }
-            }
-        })
-        
-        add(decorator.createPanel(), BorderLayout.CENTER)
     }
 
     private fun updateAuthFields() {
@@ -288,6 +336,20 @@ class ApiExplorerToolWindow(private val project: Project) {
     private fun addAuthField(id: String, label: String, default: String = "") {
         val p = JPanel(BorderLayout(5, 0)); p.add(JLabel("$label: "), BorderLayout.WEST)
         val tf = JBTextField(default); authFields[id] = tf; p.add(tf, BorderLayout.CENTER); authFieldsPanel.add(p)
+    }
+
+    private fun checkWsUrl() {
+        val url = urlField.text.trim().lowercase()
+        if (url.startsWith("ws://") || url.startsWith("wss://")) {
+            editorCardLayout.show(editorCards, "WS")
+            methodCombo.isEnabled = false
+            sendButton.text = if (wsManager.isConnected()) "Connected" else "Connect"
+        } else {
+            editorCardLayout.show(editorCards, "REST")
+            methodCombo.isEnabled = true
+            sendButton.text = "Send"
+            sendButton.isEnabled = true
+        }
     }
 
     private fun setupListeners() {
@@ -324,13 +386,39 @@ class ApiExplorerToolWindow(private val project: Project) {
         }
 
         urlField.document.addDocumentListener(object : DocumentListener {
-            override fun insertUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }
-            override fun removeUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }
-            override fun changedUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets() }
+            override fun insertUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets(); checkWsUrl() }
+            override fun removeUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets(); checkWsUrl() }
+            override fun changedUpdate(e: DocumentEvent?) { syncUrlToTable(); refreshSnippets(); checkWsUrl() }
         })
         historyList.addListSelectionListener { if (!it.valueIsAdjusting) { val idx = historyList.selectedIndex; if (idx in 0 until savedRequestsList.size) loadRequestToEditor(savedRequestsList[idx]) } }
         collectionsTree.addTreeSelectionListener { val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode; (node?.userObject as? ApiFirstSettings.SavedRequest)?.let { loadRequestToEditor(it) } }
-        sendButton.addActionListener { executeRequest() }
+        
+        sendButton.addActionListener {
+            val url = urlField.text.trim().lowercase()
+            if (url.startsWith("ws://") || url.startsWith("wss://")) {
+                if (!wsManager.isConnected()) {
+                    sendButton.isEnabled = false
+                    wsLogArea.text = "[SYSTEM] Connecting to $url..."
+                    ApplicationManager.getApplication().executeOnPooledThread {
+                        wsManager.connect(urlField.text.trim(), getHeadersFromTable())
+                    }
+                }
+            } else {
+                executeRequest()
+            }
+        }
+        
+        wsSendButton.addActionListener {
+            val msg = wsMessageArea.text
+            if (msg.isNotEmpty()) {
+                wsManager.sendMessage(msg)
+                wsMessageArea.text = ""
+            }
+        }
+        
+        wsDisconnectButton.addActionListener {
+            wsManager.disconnect()
+        }
         
         val autoRow = { e: javax.swing.event.TableModelEvent ->
             val model = e.source as DefaultTableModel
@@ -409,6 +497,7 @@ class ApiExplorerToolWindow(private val project: Project) {
         headersTableModel.rowCount = 0; req.headers.forEach { (k, v) -> headersTableModel.addRow(arrayOf(k, v)) }; headersTableModel.addRow(arrayOf("", ""))
         assertionsTableModel.rowCount = 0; req.assertions.forEach { assertionsTableModel.addRow(arrayOf(it.type, it.expectedValue)) }; assertionsTableModel.addRow(arrayOf("", ""))
         authTypeCombo.selectedItem = req.authType; updateAuthFields(); req.authParams.forEach { (k, v) -> authFields[k]?.text = v }; syncUrlToTable(); refreshSnippets()
+        checkWsUrl()
     }
 
     private fun refreshSnippets() {
