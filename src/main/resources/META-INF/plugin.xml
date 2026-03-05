@@ -15,6 +15,9 @@
                     anchor="right" 
                     factoryClass="com.jakumjirak.ApiExplorerToolWindowFactory"
                     icon="AllIcons.Actions.Search"/>
+    
+        <notificationGroup id="API First &amp; Mocking Studio Feedback" displayType="BALLOON"/>
+        <projectActivity implementation="com.jakumjirak.feedback.FeedbackNotifier"/>
     </extensions>
 
     <actions>
