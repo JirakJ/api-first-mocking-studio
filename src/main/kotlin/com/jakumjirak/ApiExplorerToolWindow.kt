@@ -3,7 +3,7 @@ package com.jakumjirak
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
+import com.intellij.openapi.fileChooser.FileChooserDescriptor
 import com.intellij.openapi.fileChooser.FileChooserFactory
 import com.intellij.openapi.fileChooser.FileSaverDescriptor
 import com.intellij.openapi.project.Project
@@ -65,6 +65,7 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val envCombo = ComboBox<String>()
     private val manageEnvButton = JButton(AllIcons.General.Settings)
     private val manageCookiesButton = JButton("Cookies", AllIcons.Nodes.WebFolder)
+    private val importCurlButton = JButton(AllIcons.Actions.MenuPaste)
     private val saveToCollectionButton = JButton(AllIcons.Actions.MenuSaveall)
     
     // Request Tabs
@@ -129,7 +130,7 @@ class ApiExplorerToolWindow(private val project: Project) {
             border = BorderFactory.createEmptyBorder(5, 5, 5, 5)
             val left = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { add(envCombo); add(manageEnvButton); add(manageCookiesButton); add(Box.createHorizontalStrut(5)); add(methodCombo) }
             add(left, BorderLayout.WEST); add(urlField, BorderLayout.CENTER)
-            val right = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0)).apply { add(saveToCollectionButton); add(sendButton) }
+            val right = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0)).apply { add(importCurlButton); add(saveToCollectionButton); add(sendButton) }
             add(right, BorderLayout.EAST)
         }
 
@@ -222,7 +223,7 @@ class ApiExplorerToolWindow(private val project: Project) {
             
             decorator.addExtraAction(object : AnAction("Import OpenAPI", "Import from OpenAPI file", AllIcons.Actions.Download) {
                 override fun actionPerformed(e: AnActionEvent) {
-                    val descriptor = FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor()
+                    val descriptor = FileChooserDescriptor(true, false, false, false, false, false)
                     val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
                     if (file != null) {
                         val collection = importer.importOpenApi(file.path)
@@ -238,7 +239,7 @@ class ApiExplorerToolWindow(private val project: Project) {
 
             decorator.addExtraAction(object : AnAction("Import Postman Collection", "Import from Postman v2.1 JSON", AllIcons.ToolbarDecorator.Import) {
                 override fun actionPerformed(e: AnActionEvent) {
-                    val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+                    val descriptor = FileChooserDescriptor(true, false, false, false, false, false).withFileFilter { it.extension == "json" }
                     val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
                     if (file != null) {
                         val collection = importer.importPostmanCollection(file.path)
@@ -255,7 +256,7 @@ class ApiExplorerToolWindow(private val project: Project) {
             
             decorator.addExtraAction(object : AnAction("Import Collection", "Import collection from JSON", AllIcons.ToolbarDecorator.Import) {
                 override fun actionPerformed(e: AnActionEvent) {
-                    val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor("json")
+                    val descriptor = FileChooserDescriptor(true, false, false, false, false, false).withFileFilter { it.extension == "json" }
                     val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
                     if (file != null) {
                         try {
@@ -286,7 +287,7 @@ class ApiExplorerToolWindow(private val project: Project) {
                         return
                     }
                     
-                    val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON", "json")
+                    val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON file")
                     val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
                     val wrapper = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, "${userObj.name.replace(" ", "_")}.json")
                     
@@ -430,6 +431,20 @@ class ApiExplorerToolWindow(private val project: Project) {
         envCombo.addActionListener { settings.activeEnvironmentName = if (envCombo.selectedItem == "No Environment") null else envCombo.selectedItem as String; refreshSnippets() }
         manageEnvButton.addActionListener { if (ManageEnvironmentsDialog(project, settings).showAndGet()) updateEnvCombo(settings) }
         manageCookiesButton.addActionListener { CookieManagerDialog(project, executor).showAndGet() }
+        
+        importCurlButton.addActionListener {
+            val curlString = Messages.showMultilineInputDialog(project, "Paste cURL command here:", "Import cURL", null, AllIcons.Actions.MenuPaste, null)
+            if (!curlString.isNullOrBlank()) {
+                val parsedRequest = CurlParser().parse(curlString)
+                if (parsedRequest != null) {
+                    loadRequestToEditor(parsedRequest)
+                    Messages.showInfoMessage(project, "cURL successfully imported.", "Import Complete")
+                } else {
+                    Messages.showErrorDialog(project, "Failed to parse cURL command.", "Import Error")
+                }
+            }
+        }
+        
         authTypeCombo.addActionListener { updateAuthFields(); refreshSnippets() }
         bodyTypeCombo.addActionListener { bodyCardLayout.show(bodyCards, bodyTypeCombo.selectedItem as String); refreshSnippets() }
         snippetLanguageCombo.addActionListener { refreshSnippets() }
@@ -506,7 +521,7 @@ class ApiExplorerToolWindow(private val project: Project) {
                 val row = e.firstRow
                 val type = formDataTableModel.getValueAt(row, 0) as String
                 if (type == "File") {
-                    val descriptor = FileChooserDescriptorFactory.createSingleFileDescriptor()
+                    val descriptor = FileChooserDescriptor(true, false, false, false, false, false)
                     val file = FileChooserFactory.getInstance().createFileChooser(descriptor, project, null).choose(project).firstOrNull()
                     if (file != null) {
                         formDataTableModel.setValueAt(file.path, row, 2)
