@@ -14,6 +14,14 @@
                     factoryClass="com.jakumjirak.ApiExplorerToolWindowFactory"
                     icon="AllIcons.Actions.Search"/>
     
+        <projectService serviceImplementation="com.jakumjirak.ApiFirstPluginSettings"/>
+
+        <projectConfigurable
+            parentId="tools"
+            instance="com.jakumjirak.ApiFirstConfigurable"
+            id="apifirst.mocking.studio.settings"
+            displayName="API First &amp; Mocking Studio"/>
+
         <notificationGroup id="API First &amp; Mocking Studio Feedback" displayType="BALLOON"/>
         <projectActivity implementation="com.jakumjirak.feedback.FeedbackNotifier"/>
     </extensions>
