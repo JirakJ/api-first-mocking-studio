@@ -1,6 +1,6 @@
 plugins {
     id("java")
-    kotlin("jvm") version "1.9.20"
+    kotlin("jvm") version "2.1.0"
     id("org.jetbrains.intellij.platform") version "2.11.0"
 }
 
@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdeaCommunity("2023.2")
+        intellijIdeaCommunity("2024.3")
         bundledPlugins("com.intellij.java", "org.jetbrains.plugins.terminal")
         pluginVerifier()
         zipSigner()

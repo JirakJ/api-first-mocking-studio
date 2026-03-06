@@ -178,18 +178,12 @@
 ### Added
 - Default plugin icon (`pluginIcon.svg`).
 
-### Changed
-- Updated Marketplace Product Code to `PAPIFIRSTMOCKIN`.
-- Confirmed FREEMIUM pricing model configuration.
+### Added
+- Default plugin icon (`pluginIcon.svg`).
 
 ## [2026.2.3] - 2026-02-26
 ### Changed
 - Added internal performance note in OpenApiParser.
-
-## [2026.2.2] - 2026-02-26
-### Changed
-- Updated Marketplace Product Code to `PAPIFIRSTMOCKIN`.
-- Confirmed FREEMIUM pricing model configuration.
 
 ## [2026.2.1] - 2026-02-26
 ### Added
