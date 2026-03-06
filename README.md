@@ -3,12 +3,12 @@
 Native JetBrains IDE plugin for API development, testing, and mocking.
 
 ## Features
-- **OpenAPI 3.0/3.1 & Swagger 2.0 Parsing** (Free)
-- **Native API Explorer Tool Window** (Free)
-- **JetBrains HTTP Client Integration** (Free)
-- **Embedded Ktor Mock Server** (Premium)
-- **Post-response Scripting & Variable Extraction** (Premium)
-- **Secure Environment Management** (Premium)
+- **OpenAPI 3.0/3.1 & Swagger 2.0 Parsing**
+- **Native API Explorer Tool Window**
+- **JetBrains HTTP Client Integration**
+- **Embedded Ktor Mock Server**
+- **Post-response Scripting & Variable Extraction**
+- **Secure Environment Management**
 
 ## Installation
 - Download from JetBrains Marketplace.

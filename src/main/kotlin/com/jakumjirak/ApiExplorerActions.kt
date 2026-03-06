@@ -19,14 +19,8 @@ class GenerateHttpClientAction(private val project: Project, private val openApi
 
 class ToggleMockServerAction(private val project: Project, private val openApiProvider: () -> OpenAPI?) : AnAction("Start Mock Server") {
     private val mockServer = MockServer()
-    private val licenseManager = project.getService(LicenseManager::class.java)
 
     override fun actionPerformed(e: AnActionEvent) {
-        if (!licenseManager.isPremium()) {
-            Messages.showInfoMessage(project, "Mock Server is a Premium feature. Please upgrade your license.", "API First Pro")
-            return
-        }
-        
         if (mockServer.isRunning()) {
             mockServer.stop()
             e.presentation.text = "Start Mock Server"
