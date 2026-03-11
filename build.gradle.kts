@@ -37,6 +37,14 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.8")
 }
 
+// Exclude IDE-provided libraries from plugin distribution
+configurations {
+    runtimeClasspath {
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "org.jetbrains", module = "annotations")
+    }
+}
+
 intellijPlatform {
     pluginConfiguration {
         id = "com.apifirst.mocking.studio"
