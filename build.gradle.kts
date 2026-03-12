@@ -68,6 +68,13 @@ intellijPlatform {
     publishing {
         token = System.getenv("PLUGIN_TOKEN")
     }
+
+    pluginVerification {
+        ides {
+            ide("IC", "2024.3")
+            ide("IC", "2025.1.3")
+        }
+    }
 }
 
 kotlin {
