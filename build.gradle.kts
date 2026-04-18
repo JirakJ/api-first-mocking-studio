@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdeaCommunity("2024.3")
+        intellijIdeaCommunity(providers.gradleProperty("platformVersion"))
         bundledPlugins("com.intellij.java", "org.jetbrains.plugins.terminal")
         pluginVerifier()
         zipSigner()
@@ -71,8 +71,10 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            ide("IC", "2024.3")
-            ide("IC", "2025.1.3")
+            create("IC", "2025.1.7") { useInstaller = false }
+            create("IC", "2025.2.6.1") { useInstaller = false }
+            create("IU", "2025.3.4") { useInstaller = true }
+            create("IU", "261.23567.71") { useInstaller = true }
         }
     }
 }
@@ -83,7 +85,9 @@ kotlin {
 
 tasks {
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "17"
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
     
     test {

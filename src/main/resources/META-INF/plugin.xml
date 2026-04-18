@@ -2,7 +2,7 @@
     <id>com.apifirst.mocking.studio</id>
     <name>API First &amp; Mocking Studio</name>
     <vendor>JetBrains Plugin Developer</vendor>
-    <product-descriptor code="PAPIFIRSTMOCKIN" release-date="20260418" release-version="20263" optional="true"/>
+    <product-descriptor code="PAPIFIRSTMOCKIN" release-date="20260419" release-version="20264" optional="true"/>
 
     <pluginIcon>pluginIcon.svg</pluginIcon>
 
