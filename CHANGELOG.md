@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.4.1] - 2026-04-18
+
+### Changed
+- Raised minimum compatibility to IntelliJ 2025.1 (build 251). Dropped support for IntelliJ 2024.3 (build 243) to align with current Plugin Verifier targets (IC 2025.1.7, 2025.2.6.1, IU 2025.3.4, 2026.1.1).
+- Migrated the plugin verifier DSL to the modern `create(type, version) { useInstaller = … }` form and updated Kotlin `compilerOptions` DSL, removing deprecated Gradle configuration APIs that produced deprecation warnings for the 2024.3 baseline.
+
 ## [2026.3.6] - 2026-04-18
 
 ### Changed
