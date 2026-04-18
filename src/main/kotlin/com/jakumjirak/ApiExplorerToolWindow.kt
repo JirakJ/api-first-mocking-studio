@@ -287,7 +287,7 @@ class ApiExplorerToolWindow(private val project: Project) {
                         return
                     }
                     
-                    val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON file")
+                    val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON file").apply { withExtensionFilter("json") }
                     val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
                     val wrapper = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, "${userObj.name.replace(" ", "_")}.json")
                     

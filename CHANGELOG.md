@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.3.6] - 2026-04-18
+
+### Changed
+- Enabled freemium licensing via `<product-descriptor optional="true">`. Plugin remains fully functional without a license; premium features may be introduced in future minor releases.
+
+
 ## [2026.2.39] - 2026-02-27
 ### Added
 - **OAuth 2.0 Support:** Added native support for the OAuth 2.0 Client Credentials flow directly within the Auth tab.
