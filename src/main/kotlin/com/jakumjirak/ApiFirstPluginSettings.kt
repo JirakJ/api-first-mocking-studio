@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2024-2025 Jakub Jirak. All rights reserved.
- * Licensed under the terms of the project license.
+ * Copyright 2024-2025 Jakub Jirák
+ * Licensed under the Apache License, Version 2.0 (see LICENSE).
  */
 package com.jakumjirak
 
