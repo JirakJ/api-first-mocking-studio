@@ -8,3 +8,10 @@ out
 !gradle/wrapper/
 .intellijPlatform
 *.hprof
+.env
+build/
+.gradle/
+.intellijPlatform/
+.idea/
+.DS_Store
+.kotlin/
