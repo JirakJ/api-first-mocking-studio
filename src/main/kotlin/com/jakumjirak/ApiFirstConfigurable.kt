@@ -21,7 +21,6 @@ class ApiFirstConfigurable(private val project: Project) : SearchableConfigurabl
 
     private lateinit var requestTimeoutField: JBTextField
     private lateinit var followRedirectsCheckBox: JBCheckBox
-    private lateinit var verifySslCheckBox: JBCheckBox
     private lateinit var maxHistorySizeField: JBTextField
     private lateinit var mockServerPortField: JBTextField
     private var myPanel: JPanel? = null
@@ -33,16 +32,14 @@ class ApiFirstConfigurable(private val project: Project) : SearchableConfigurabl
     override fun createComponent(): JComponent {
         requestTimeoutField = JBTextField()
         followRedirectsCheckBox = JBCheckBox("Follow redirects")
-        verifySslCheckBox = JBCheckBox("Verify SSL certificates")
         maxHistorySizeField = JBTextField()
         mockServerPortField = JBTextField()
 
         val panel = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel("Request timeout (ms):"), requestTimeoutField, 1, false)
             .addComponent(followRedirectsCheckBox, 1)
-            .addComponent(verifySslCheckBox, 1)
             .addLabeledComponent(JBLabel("Max history size:"), maxHistorySizeField, 1, false)
-            .addLabeledComponent(JBLabel("Mock server port:"), mockServerPortField, 1, false)
+            .addLabeledComponent(JBLabel("Mock server port (127.0.0.1):"), mockServerPortField, 1, false)
             .addComponentFillVertically(JPanel(), 0)
             .panel
 
@@ -55,25 +52,26 @@ class ApiFirstConfigurable(private val project: Project) : SearchableConfigurabl
         val settings = ApiFirstPluginSettings.getInstance(project)
         return requestTimeoutField.text != settings.requestTimeoutMs.toString() ||
                 followRedirectsCheckBox.isSelected != settings.followRedirects ||
-                verifySslCheckBox.isSelected != settings.verifySsl ||
                 maxHistorySizeField.text != settings.maxHistorySize.toString() ||
                 mockServerPortField.text != settings.mockServerPort.toString()
     }
 
     override fun apply() {
         val settings = ApiFirstPluginSettings.getInstance(project)
-        settings.requestTimeoutMs = requestTimeoutField.text.toIntOrNull() ?: 30000
+        settings.requestTimeoutMs = ApiFirstPluginSettings.parsePositive(
+            requestTimeoutField.text, ApiFirstPluginSettings.DEFAULT_TIMEOUT_MS
+        )
         settings.followRedirects = followRedirectsCheckBox.isSelected
-        settings.verifySsl = verifySslCheckBox.isSelected
-        settings.maxHistorySize = maxHistorySizeField.text.toIntOrNull() ?: 100
-        settings.mockServerPort = mockServerPortField.text.toIntOrNull() ?: 8085
+        settings.maxHistorySize = ApiFirstPluginSettings.parsePositive(
+            maxHistorySizeField.text, ApiFirstPluginSettings.DEFAULT_MAX_HISTORY
+        )
+        settings.mockServerPort = ApiFirstPluginSettings.parsePort(mockServerPortField.text)
     }
 
     override fun reset() {
         val settings = ApiFirstPluginSettings.getInstance(project)
         requestTimeoutField.text = settings.requestTimeoutMs.toString()
         followRedirectsCheckBox.isSelected = settings.followRedirects
-        verifySslCheckBox.isSelected = settings.verifySsl
         maxHistorySizeField.text = settings.maxHistorySize.toString()
         mockServerPortField.text = settings.mockServerPort.toString()
     }

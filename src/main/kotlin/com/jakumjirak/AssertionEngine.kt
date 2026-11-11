@@ -18,7 +18,8 @@ class AssertionEngine {
                     AssertionResult(assertion, actual == assertion.expectedValue, actual)
                 }
                 "Body Contains" -> {
-                    AssertionResult(assertion, response.body.contains(assertion.expectedValue), "Body excerpt: ${response.body.take(20)}...")
+                    val excerpt = "Body excerpt: ${response.body.take(EXCERPT_LENGTH)}..."
+                    AssertionResult(assertion, response.body.contains(assertion.expectedValue), excerpt)
                 }
                 "JSON Match" -> {
                     // expectedValue format: path=value (e.g. $.id=1)
@@ -34,5 +35,9 @@ class AssertionEngine {
                 else -> AssertionResult(assertion, false, "Unknown type")
             }
         }
+    }
+
+    private companion object {
+        const val EXCERPT_LENGTH = 20
     }
 }

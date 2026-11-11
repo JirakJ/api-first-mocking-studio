@@ -11,7 +11,7 @@ import com.intellij.openapi.project.Project
 
 /**
  * Persistent project-level settings for the API First & Mocking Studio plugin.
- * Stores general configuration such as request timeout, SSL verification, and mock server port.
+ * Stores request timeout, redirect policy, history size and mock server port.
  */
 @State(name = "ApiFirstPluginSettings", storages = [Storage("api-first-plugin-settings.xml")])
 class ApiFirstPluginSettings : PersistentStateComponent<ApiFirstPluginSettings.State> {
@@ -21,7 +21,6 @@ class ApiFirstPluginSettings : PersistentStateComponent<ApiFirstPluginSettings.S
     class State {
         var requestTimeoutMs: Int = 30000
         var followRedirects: Boolean = true
-        var verifySsl: Boolean = true
         var maxHistorySize: Int = 100
         var mockServerPort: Int = 8085
     }
@@ -40,10 +39,6 @@ class ApiFirstPluginSettings : PersistentStateComponent<ApiFirstPluginSettings.S
         get() = myState.followRedirects
         set(value) { myState.followRedirects = value }
 
-    var verifySsl: Boolean
-        get() = myState.verifySsl
-        set(value) { myState.verifySsl = value }
-
     var maxHistorySize: Int
         get() = myState.maxHistorySize
         set(value) { myState.maxHistorySize = value }
@@ -53,6 +48,23 @@ class ApiFirstPluginSettings : PersistentStateComponent<ApiFirstPluginSettings.S
         set(value) { myState.mockServerPort = value }
 
     companion object {
+        const val DEFAULT_TIMEOUT_MS = 30_000
+        const val DEFAULT_MAX_HISTORY = 100
+        const val DEFAULT_MOCK_PORT = 8085
+
+        /** Positive integer from [text], or [default] when blank/invalid/out of range. */
+        fun parsePositive(text: String, default: Int, max: Int = Int.MAX_VALUE): Int =
+            text.trim().toIntOrNull()?.takeIf { it in 1..max } ?: default
+
+        /** Valid TCP port from [text], or [DEFAULT_MOCK_PORT]. */
+        fun parsePort(text: String): Int = parsePositive(text, DEFAULT_MOCK_PORT, MockServer.VALID_PORTS.last)
+
+        /** Drops the oldest entries so at most [max] remain (history is stored oldest first). */
+        fun <T> trimHistory(history: MutableList<T>, max: Int) {
+            val limit = max.coerceAtLeast(1)
+            while (history.size > limit) history.removeAt(0)
+        }
+
         fun getInstance(project: Project): ApiFirstPluginSettings =
             project.getService(ApiFirstPluginSettings::class.java)
     }
