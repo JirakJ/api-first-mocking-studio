@@ -1,23 +1,27 @@
 package com.jakumjirak
 
-import io.swagger.v3.parser.OpenAPIV3Parser
+import io.swagger.parser.OpenAPIParser
 import io.swagger.v3.oas.models.OpenAPI
-import java.io.File
+import io.swagger.v3.parser.core.models.ParseOptions
 
 /**
- * Parser for OpenAPI 3.0/3.1 and Swagger 2.0 specifications.
- * Uses swagger-parser to handle JSON and YAML formats.
+ * Parser for OpenAPI 3.0/3.1 and Swagger 2.0 specifications (JSON or YAML).
+ * Swagger 2.0 documents are converted to the OpenAPI 3 model by swagger-parser.
  */
 class OpenApiParser {
-    
-    // Internal note: Consider caching parsed OpenAPI models for performance.
+
     /**
-     * Parses an OpenAPI specification from a local file path.
-     * @param path The absolute or relative path to the specification file.
+     * Parses a specification from a local file path or URL.
      * @return The parsed OpenAPI model or null if parsing fails.
      */
     fun parseFromFile(path: String): OpenAPI? {
-        val result = OpenAPIV3Parser().readLocation(path, null, null)
-        return result.openAPI
+        val options = ParseOptions().apply { isResolve = true }
+        return OpenAPIParser().readLocation(path, null, options).openAPI
+    }
+
+    /** Parses specification text (JSON or YAML). */
+    fun parseContent(content: String): OpenAPI? {
+        val options = ParseOptions().apply { isResolve = true }
+        return OpenAPIParser().readContents(content, null, options).openAPI
     }
 }

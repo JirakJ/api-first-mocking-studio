@@ -1,31 +1,44 @@
 package com.jakumjirak
 
-import com.jayway.jsonpath.JsonPath
 import com.intellij.openapi.project.Project
+import com.jayway.jsonpath.JsonPath
+import com.jayway.jsonpath.JsonPathException
 
 /**
  * Executes post-response scripts to extract variables.
- * Script format: variableName=jsonPath (e.g., auth_token=$.token)
+ * Script format, one per line: `variableName=jsonPath` (e.g. `auth_token=$.token`).
+ * Lines starting with `//` and lines whose path does not match are ignored.
  */
 class ResponseScriptEngine(private val project: Project) {
 
     fun execute(script: String?, responseBody: String) {
-        if (script.isNullOrBlank()) return
-        
         val settings = ApiFirstSettings.getInstance(project)
-        
-        script.lines().forEach { line ->
-            if (line.contains("=")) {
-                val varName = line.substringBefore("=").trim()
-                val path = line.substringAfter("=").trim()
-                
-                try {
-                    val value: Any = JsonPath.read(responseBody, path)
-                    settings.setVariable(varName, value.toString())
-                } catch (e: Exception) {
-                    // Log or handle script error
+        extract(script, responseBody).forEach { (name, value) -> settings.setVariable(name, value) }
+    }
+
+    companion object {
+        /** Variable assignments produced by [script] against [responseBody]. */
+        fun extract(script: String?, responseBody: String): Map<String, String> {
+            if (script.isNullOrBlank()) return emptyMap()
+            val result = linkedMapOf<String, String>()
+            script.lines()
+                .map { it.trim() }
+                .filter { it.contains('=') && !it.startsWith("//") }
+                .forEach { line ->
+                    val name = line.substringBefore('=').trim()
+                    val path = line.substringAfter('=').trim()
+                    if (name.isEmpty() || path.isEmpty()) return@forEach
+                    readPath(responseBody, path)?.let { result[name] = it }
                 }
-            }
+            return result
+        }
+
+        private fun readPath(body: String, path: String): String? = try {
+            JsonPath.read<Any?>(body, path)?.toString()
+        } catch (ignored: JsonPathException) {
+            null // unmatched path or non-JSON body: the variable is simply not set
+        } catch (ignored: IllegalArgumentException) {
+            null // body is not JSON
         }
     }
 }

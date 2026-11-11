@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private fun setupListeners()</ID>
+    <ID>CyclomaticComplexMethod:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private fun setupUI()</ID>
+    <ID>LongMethod:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private fun setupListeners()</ID>
+    <ID>LongMethod:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private fun setupUI()</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$ApplicationManager.getApplication().invokeLater { Messages.showErrorDialog(project, "Error: ${e.message}", "OAuth 2.0 Error") }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$ApplicationManager.getApplication().invokeLater { Messages.showErrorDialog(project, "Failed to fetch token. Status: ${response.statusCode}\n\n${response.body}", "OAuth 2.0 Error") }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$ApplicationManager.getApplication().invokeLater { Messages.showErrorDialog(project, "Response did not contain access_token.", "OAuth 2.0 Error") }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$assertions = assertions</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$assertionsTableModel.rowCount = 0</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$authTypeCombo.selectedItem = req.authType</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$collectionsRoot.removeAllChildren()</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$collectionsTree.addTreeSelectionListener { val node = collectionsTree.lastSelectedPathComponent as? DefaultMutableTreeNode; (node?.userObject as? ApiFirstSettings.SavedRequest)?.let { loadRequestToEditor(it) } }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$decorator</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$else</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$envCombo.addActionListener { settings.activeEnvironmentName = if (envCombo.selectedItem == "No Environment") null else envCombo.selectedItem as String; refreshSnippets() }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$envCombo.removeAllItems()</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$firstComponent = JPanel(BorderLayout()).apply { add(JLabel("Query"), BorderLayout.NORTH); add(JBScrollPane(graphqlQueryArea), BorderLayout.CENTER) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$formData = formData</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$formDataTableModel.rowCount = 0</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$headersTableModel.addRow(arrayOf("Accept", "application/json"))</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$headersTableModel.rowCount = 0</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$historyList.addListSelectionListener { if (!it.valueIsAdjusting) { val idx = historyList.selectedIndex; if (idx in 0 until savedRequestsList.size) loadRequestToEditor(savedRequestsList[idx]) } }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$if (model.getValueAt(e.firstRow, 0).toString().isNotEmpty() || model.getValueAt(e.firstRow, 1).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("", "")) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$if (model.getValueAt(e.firstRow, 1).toString().isNotEmpty() || model.getValueAt(e.firstRow, 2).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("Text", "", "")) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$if (model.getValueAt(it.firstRow, 0).toString().isNotEmpty() || model.getValueAt(it.firstRow, 1).toString().isNotEmpty()) ApplicationManager.getApplication().invokeLater { model.addRow(arrayOf("", "")) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$paramsTableModel.addRow(arrayOf("", ""))</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$preRequestScript = reqPreScriptArea.text.takeIf { it.isNotBlank() }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private val executor = ApiRequestExecutor({ pluginSettings.requestTimeoutMs }, { pluginSettings.followRedirects });</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private val graphqlQueryArea = LanguageTextField(Language.findLanguageByID("GraphQL") ?: PlainTextLanguage.INSTANCE, project, "query {\n \n}", false)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private val graphqlVarsArea = LanguageTextField(Language.findLanguageByID("JSON") ?: PlainTextLanguage.INSTANCE, project, "{\n \n}", false)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private val reqPreScriptArea = LanguageTextField(Language.findLanguageByID("JavaScript") ?: PlainTextLanguage.INSTANCE, project, "// Example: timestamp={{\$timestamp}}\n// Or: my_var=fixed_value", false)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$private val reqScriptArea = LanguageTextField(Language.findLanguageByID("JavaScript") ?: PlainTextLanguage.INSTANCE, project, "// Example: auth_token=$.token", false)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$reqTabs.addTab("Body", bodyPanel)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$reqTabs.addTab("Params", JBScrollPane(paramsTable))</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$responseArea.text = try { GsonBuilder().setPrettyPrinting().create().toJson(JsonParser.parseString(response.body)) } catch (ignored: com.google.gson.JsonParseException) { response.body }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$responseTree.model = jsonTreeBuilder.build(response.body)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$secondComponent = JPanel(BorderLayout()).apply { add(JLabel("Variables"), BorderLayout.NORTH); add(JBScrollPane(graphqlVarsArea), BorderLayout.CENTER) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$statusLabel.text = "Status: ${response.statusCode} | Time: ${response.durationMs}ms | Tests: ${results.count { it.success }}/${results.size} passed"</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$testResultsArea.text = if (results.isEmpty()) "No tests defined." else results.joinToString("\n") { "${if (it.success) "✅" else "❌"} ${it.assertion.type}: Expected [${it.assertion.expectedValue}], Actual [${it.actualValue}]" }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val curlString = Messages.showMultilineInputDialog(project, "Paste cURL command here:", "Import cURL", null, AllIcons.Actions.MenuPaste, null)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val left = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply { add(envCombo); add(manageEnvButton); add(manageCookiesButton); add(Box.createHorizontalStrut(5)); add(methodCombo) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val map = mutableMapOf&lt;String, String>()</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val reqData = createSavedRequest("History Entry")</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val request = ApiRequest(method, url, getHeadersFromTable(), reqData.bodyType, reqData.body, reqData.formData, reqData.graphqlQuery, reqData.graphqlVariables, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text })</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val responsePanel = JPanel(BorderLayout()).apply { add(resTabs, BorderLayout.CENTER); add(JPanel(FlowLayout(FlowLayout.LEFT)).apply { add(statusLabel) }, BorderLayout.SOUTH) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val right = JPanel(FlowLayout(FlowLayout.RIGHT, 5, 0)).apply { add(importCurlButton); add(saveToCollectionButton); add(sendButton) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val settings = ApiFirstSettings.getInstance(project)</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$val type = assertionsTableModel.getValueAt(i, 0) as? String ?: ""</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow$while (savedRequestsList.size > settings.history.size) { savedRequestsList.removeAt(savedRequestsList.size - 1); historyListModel.remove(historyListModel.size() - 1) }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow.&lt;no name provided>$Messages.showErrorDialog(project, "The selected file does not appear to be a valid Postman Collection (v2.1).", "Import Error")</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow.&lt;no name provided>$Messages.showErrorDialog(project, "The selected file does not appear to be a valid exported Collection.", "Import Error")</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow.&lt;no name provided>$Messages.showInfoMessage(project, "Successfully imported Postman Collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow.&lt;no name provided>$Messages.showInfoMessage(project, "Successfully imported collection '${collection.name}' with ${collection.requests.size} requests.", "Import Complete")</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow.&lt;no name provided>$val descriptor = FileChooserDescriptor(true, false, false, false, false, false).withFileFilter { it.extension == "json" }</ID>
+    <ID>MaxLineLength:ApiExplorerToolWindow.kt$ApiExplorerToolWindow.&lt;no name provided>$val descriptor = FileSaverDescriptor("Export Collection", "Save collection as JSON file").apply { withExtensionFilter("json") }</ID>
+  </CurrentIssues>
+</SmellBaseline>

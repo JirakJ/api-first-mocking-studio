@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- *Tools → API First → Start Mock Server…* and *Generate HTTP Client File…*: the embedded mock server and `.http` generator existed in code but were not reachable from the UI. The mock server binds to 127.0.0.1 only, uses the configured port and stops with the project.
+
+### Fixed
+- Settings had no effect: request timeout, redirect following and history size are now applied; the mock-server port is used. The unimplemented "Verify SSL certificates" option was removed.
+- cURL import split arguments on spaces, breaking quoted headers (`-H 'Content-Type: application/json'`) and JSON bodies; it now tokenises like a shell and also understands `-u`, `--url`, `-XPOST`, `-I`.
+- Mock data: array responses were always `null`, inline YAML/JSON examples were serialised incorrectly, OpenAPI 3.1 `type: [..]` was ignored and self-referencing schemas could recurse forever.
+- Swagger 2.0 files are now converted (previously only OpenAPI 3 parsed).
+- GraphQL bodies are built as proper JSON (quotes/backslashes in queries no longer break the payload); invalid variables JSON is reported.
+- Code snippets escape values correctly for shell, Python and JavaScript.
+- Postman import handles folders and skips disabled headers; query-param editing keeps `{{variables}}` intact.
+- Plugin vendor shown as "Jakub Jirák".
+
 ## [2026.8.0] - 2026-11-10
 
 ### Changed
