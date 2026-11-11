@@ -2,6 +2,7 @@ plugins {
     id("java")
     kotlin("jvm") version "2.1.0"
     id("org.jetbrains.intellij.platform") version "2.11.0"
+    id("io.gitlab.arturbosch.detekt") version "1.23.7"
 }
 
 group = "com.jakumjirak"
@@ -34,13 +35,16 @@ dependencies {
     
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
-    testImplementation("io.mockk:mockk:1.13.8")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // The IntelliJ test runtime references JUnit 4 classes even for pure JUnit 5 tests.
+    testRuntimeOnly("junit:junit:4.13.2")
 }
 
 // Exclude IDE-provided libraries from plugin distribution
 configurations {
     runtimeClasspath {
         exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "org.jetbrains.kotlinx")
         exclude(group = "org.jetbrains", module = "annotations")
     }
 }
@@ -56,12 +60,17 @@ intellijPlatform {
         }
         
         vendor {
-            name = "JetBrains Plugin Developer"
+            name = "Jakub Jirák"
+            url = "https://github.com/JirakJ/api-first-mocking-studio"
         }
         description = """
-            Native API Client and Mocking Server for JetBrains IDEs.
-            Fully replaces external API clients directly within your IDE.
-            Supports OpenAPI 3.0/3.1, Swagger 2.0, and embedded Mock Server with dynamic data generation.
+            <p>API client and mock server inside your JetBrains IDE.</p>
+            <ul>
+              <li>API Explorer tool window: requests with Raw, form, multipart and GraphQL bodies, auth, environments, history and collections</li>
+              <li>Pre-request scripts, response variable extraction and assertions</li>
+              <li>Import OpenAPI 3.0/3.1, Swagger 2.0, Postman collections and cURL commands; export cURL, Python and JavaScript snippets</li>
+              <li>Tools | API First: local mock server generated from an OpenAPI spec, and .http file generation</li>
+            </ul>
         """.trimIndent()
     }
     
@@ -80,17 +89,23 @@ intellijPlatform {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 
 tasks {
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         }
     }
     
     test {
         useJUnitPlatform()
     }
+}
+
+detekt {
+    config.setFrom(files("detekt.yml"))
+    buildUponDefaultConfig = true
+    baseline = file("detekt-baseline.xml")
 }
