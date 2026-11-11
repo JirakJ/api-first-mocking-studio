@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2026.9.0] - 2026-11-11
+
 ### Added
 - *Tools → API First → Start Mock Server…* and *Generate HTTP Client File…*: the embedded mock server and `.http` generator existed in code but were not reachable from the UI. The mock server binds to 127.0.0.1 only, uses the configured port and stops with the project.
 
