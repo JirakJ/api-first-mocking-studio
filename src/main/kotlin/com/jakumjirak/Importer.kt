@@ -1,106 +1,106 @@
 package com.jakumjirak
 
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import io.swagger.v3.oas.models.OpenAPI
 import java.io.File
+import java.io.IOException
 
-class Importer {
-    private val parser = OpenApiParser()
+/** Imports request collections from OpenAPI/Swagger specs and Postman v2.x collections. */
+class Importer(private val parser: OpenApiParser = OpenApiParser()) {
 
-    fun importOpenApi(path: String): ApiFirstSettings.Collection? {
-        val openApi = parser.parseFromFile(path) ?: return null
-        
-        val collection = ApiFirstSettings.Collection(
-            name = openApi.info?.title ?: "Imported API"
-        )
+    fun importOpenApi(path: String): ApiFirstSettings.Collection? = parser.parseFromFile(path)?.let { fromOpenApi(it) }
 
+    /** One request per operation, addressed relative to the `{{base_url}}` variable. */
+    fun fromOpenApi(openApi: OpenAPI): ApiFirstSettings.Collection {
+        val collection = ApiFirstSettings.Collection(name = openApi.info?.title ?: "Imported API")
         openApi.paths?.forEach { (pathStr, pathItem) ->
             pathItem.readOperationsMap().forEach { (method, operation) ->
-                val request = ApiFirstSettings.SavedRequest(
-                    name = operation.summary ?: operation.operationId ?: "$method $pathStr",
-                    method = method.name,
-                    url = "{{base_url}}$pathStr",
-                    bodyType = "Raw",
-                    body = null
+                collection.requests.add(
+                    ApiFirstSettings.SavedRequest(
+                        name = operation.summary ?: operation.operationId ?: "$method $pathStr",
+                        method = method.name,
+                        url = "{{base_url}}$pathStr",
+                        bodyType = "Raw",
+                        body = null
+                    )
                 )
-                collection.requests.add(request)
             }
         }
-        
         return collection
     }
 
-    fun importPostmanCollection(path: String): ApiFirstSettings.Collection? {
-        try {
-            val content = File(path).readText()
-            val root = JsonParser.parseString(content).asJsonObject
-            
-            val info = root.getAsJsonObject("info") ?: return null
-            val collectionName = info.get("name")?.asString ?: "Imported Postman Collection"
-            
-            val collection = ApiFirstSettings.Collection(name = collectionName)
-            
-            val items = root.getAsJsonArray("item") ?: return null
-            
-            items.forEach { itemElement ->
-                if (itemElement.isJsonObject) {
-                    val itemObj = itemElement.asJsonObject
-                    val name = itemObj.get("name")?.asString ?: "Unnamed Request"
-                    
-                    if (itemObj.has("request")) {
-                        val reqObj = itemObj.getAsJsonObject("request")
-                        val method = reqObj.get("method")?.asString ?: "GET"
-                        
-                        var url = ""
-                        val urlElement = reqObj.get("url")
-                        if (urlElement != null) {
-                            if (urlElement.isJsonObject) {
-                                url = urlElement.asJsonObject.get("raw")?.asString ?: ""
-                            } else if (urlElement.isJsonPrimitive) {
-                                url = urlElement.asString
-                            }
-                        }
-                        
-                        val headersMap = mutableMapOf<String, String>()
-                        if (reqObj.has("header") && reqObj.get("header").isJsonArray) {
-                            reqObj.getAsJsonArray("header").forEach { headerEl ->
-                                val hObj = headerEl.asJsonObject
-                                val key = hObj.get("key")?.asString
-                                val value = hObj.get("value")?.asString
-                                if (key != null && value != null) {
-                                    headersMap[key] = value
-                                }
-                            }
-                        }
-                        
-                        var bodyType = "None"
-                        var bodyContent: String? = null
-                        if (reqObj.has("body") && reqObj.get("body").isJsonObject) {
-                            val bodyObj = reqObj.getAsJsonObject("body")
-                            val mode = bodyObj.get("mode")?.asString
-                            if (mode == "raw") {
-                                bodyType = "Raw"
-                                bodyContent = bodyObj.get("raw")?.asString
-                            }
-                            // Simplified: handling only raw for now, can be expanded to form-data later
-                        }
-                        
-                        val request = ApiFirstSettings.SavedRequest(
-                            name = name,
-                            method = method,
-                            url = url,
-                            headers = headersMap,
-                            bodyType = bodyType,
-                            body = bodyContent
-                        )
-                        collection.requests.add(request)
-                    }
-                }
-            }
-            return collection
-        } catch (e: Exception) {
+    fun importPostmanCollection(path: String): ApiFirstSettings.Collection? = try {
+        importPostmanJson(File(path).readText())
+    } catch (ignored: IOException) {
+        null
+    }
+
+    /**
+     * Parses a Postman v2.0/v2.1 collection. Requests inside folders are flattened into the
+     * collection with a `Folder / Request` name. Returns `null` for anything that is not a collection.
+     */
+    fun importPostmanJson(json: String): ApiFirstSettings.Collection? {
+        val root = try {
+            JsonParser.parseString(json)
+        } catch (ignored: JsonParseException) {
             return null
         }
+        if (!root.isJsonObject) return null
+        val obj = root.asJsonObject
+        val info = obj.objectOrNull("info") ?: return null
+        val items = obj.get("item")?.takeIf { it.isJsonArray } ?: return null
+        val collection = ApiFirstSettings.Collection(name = info.stringOrNull("name") ?: "Imported Postman Collection")
+        collectItems(items, prefix = "", into = collection.requests)
+        return collection
     }
-}
 
+    private fun collectItems(items: JsonElement, prefix: String, into: MutableList<ApiFirstSettings.SavedRequest>) {
+        items.asJsonArray.filter { it.isJsonObject }.map { it.asJsonObject }.forEach { item ->
+            val name = prefix + (item.stringOrNull("name") ?: "Unnamed Request")
+            val request = item.objectOrNull("request")
+            val children = item.get("item")?.takeIf { it.isJsonArray }
+            when {
+                request != null -> into += toSavedRequest(name, request)
+                children != null -> collectItems(children, "$name / ", into)
+            }
+        }
+    }
+
+    private fun toSavedRequest(name: String, req: JsonObject): ApiFirstSettings.SavedRequest {
+        val urlElement = req.get("url")
+        val url = when {
+            urlElement == null -> ""
+            urlElement.isJsonObject -> urlElement.asJsonObject.stringOrNull("raw").orEmpty()
+            urlElement.isJsonPrimitive -> urlElement.asString
+            else -> ""
+        }
+        val headers = linkedMapOf<String, String>()
+        req.get("header")?.takeIf { it.isJsonArray }?.asJsonArray
+            ?.filter { it.isJsonObject }
+            ?.map { it.asJsonObject }
+            ?.filterNot { it.get("disabled")?.takeIf { d -> d.isJsonPrimitive }?.asBoolean == true }
+            ?.forEach { header ->
+                val key = header.stringOrNull("key")
+                val value = header.stringOrNull("value")
+                if (key != null && value != null) headers[key] = value
+            }
+        val body = req.objectOrNull("body")
+        val raw = body?.takeIf { it.stringOrNull("mode") == "raw" }?.stringOrNull("raw")
+        return ApiFirstSettings.SavedRequest(
+            name = name,
+            method = req.stringOrNull("method") ?: "GET",
+            url = url,
+            headers = headers,
+            bodyType = if (raw != null) "Raw" else "None",
+            body = raw
+        )
+    }
+
+    private fun JsonObject.objectOrNull(key: String): JsonObject? = get(key)?.takeIf { it.isJsonObject }?.asJsonObject
+
+    private fun JsonObject.stringOrNull(key: String): String? =
+        get(key)?.takeIf { it.isJsonPrimitive }?.asString
+}

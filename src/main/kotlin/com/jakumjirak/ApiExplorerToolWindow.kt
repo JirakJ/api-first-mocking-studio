@@ -113,7 +113,8 @@ class ApiExplorerToolWindow(private val project: Project) {
     private val editorCardLayout = CardLayout()
     private val editorCards = JPanel(editorCardLayout)
 
-    private val executor = ApiRequestExecutor(); private val preScriptEngine = PreRequestScriptEngine(project)
+    private val pluginSettings = ApiFirstPluginSettings.getInstance(project)
+    private val executor = ApiRequestExecutor({ pluginSettings.requestTimeoutMs }, { pluginSettings.followRedirects }); private val preScriptEngine = PreRequestScriptEngine(project)
     private val scriptEngine = ResponseScriptEngine(project); private val assertionEngine = AssertionEngine()
     private val jsonTreeBuilder = JsonTreeModelBuilder(); private val codeGenerator = CodeGenerator()
     private val importer = Importer()
@@ -602,26 +603,23 @@ class ApiExplorerToolWindow(private val project: Project) {
     private fun syncUrlToTable() {
         if (isSyncingParams) return
         isSyncingParams = true; try {
-            val urlStr = urlField.text; val qIdx = urlStr.indexOf('?')
-            if (qIdx != -1) {
-                paramsTableModel.rowCount = 0; urlStr.substring(qIdx + 1).split('&').forEach { p ->
-                    val i = p.indexOf('='); val k = if (i != -1) URLDecoder.decode(p.substring(0, i), "UTF-8") else p; val v = if (i != -1) URLDecoder.decode(p.substring(i + 1), "UTF-8") else ""
-                    paramsTableModel.addRow(arrayOf(k, v))
-                }; paramsTableModel.addRow(arrayOf("", ""))
+            val params = QueryParams.parse(urlField.text)
+            if (params != null) {
+                paramsTableModel.rowCount = 0
+                params.forEach { (k, v) -> paramsTableModel.addRow(arrayOf(k, v)) }
+                paramsTableModel.addRow(arrayOf("", ""))
             }
-        } catch (e: Exception) { } finally { isSyncingParams = false }
+        } finally { isSyncingParams = false }
     }
 
     private fun syncTableToUrl() {
         if (isSyncingParams) return
         isSyncingParams = true; try {
-            val sb = StringBuilder(urlField.text.substringBefore('?')); var first = true
-            for (i in 0 until paramsTableModel.rowCount) {
-                val k = paramsTableModel.getValueAt(i, 0) as? String ?: ""; val v = paramsTableModel.getValueAt(i, 1) as? String ?: ""
-                if (k.isNotEmpty()) { sb.append(if (first) "?" else "&").append(URLEncoder.encode(k, "UTF-8")).append("=").append(URLEncoder.encode(v, "UTF-8")); first = false }
+            val params = (0 until paramsTableModel.rowCount).map { i ->
+                (paramsTableModel.getValueAt(i, 0) as? String ?: "") to (paramsTableModel.getValueAt(i, 1) as? String ?: "")
             }
-            urlField.text = sb.toString()
-        } catch (e: Exception) { } finally { isSyncingParams = false }
+            urlField.text = QueryParams.build(urlField.text, params)
+        } finally { isSyncingParams = false }
     }
 
     private fun updateCollectionsTree(settings: ApiFirstSettings) {
@@ -642,6 +640,8 @@ class ApiExplorerToolWindow(private val project: Project) {
         if (url.isEmpty()) return
         val settings = ApiFirstSettings.getInstance(project); reqPreScriptArea.text.takeIf { it.isNotBlank() }?.let { preScriptEngine.execute(it) }
         val reqData = createSavedRequest("History Entry"); settings.history.add(reqData); savedRequestsList.add(0, reqData); historyListModel.add(0, "$method $url")
+        ApiFirstPluginSettings.trimHistory(settings.history, pluginSettings.maxHistorySize)
+        while (savedRequestsList.size > settings.history.size) { savedRequestsList.removeAt(savedRequestsList.size - 1); historyListModel.remove(historyListModel.size() - 1) }
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 val request = ApiRequest(method, url, getHeadersFromTable(), reqData.bodyType, reqData.body, reqData.formData, reqData.graphqlQuery, reqData.graphqlVariables, authTypeCombo.selectedItem as String, authFields.mapValues { it.value.text })
@@ -649,7 +649,7 @@ class ApiExplorerToolWindow(private val project: Project) {
                 reqScriptArea.text.takeIf { it.isNotBlank() }?.let { scriptEngine.execute(it, response.body) }
                 val results = assertionEngine.verify(response, reqData.assertions)
                 ApplicationManager.getApplication().invokeLater {
-                    responseArea.text = try { GsonBuilder().setPrettyPrinting().create().toJson(JsonParser.parseString(response.body)) } catch (e: Exception) { response.body }
+                    responseArea.text = try { GsonBuilder().setPrettyPrinting().create().toJson(JsonParser.parseString(response.body)) } catch (ignored: com.google.gson.JsonParseException) { response.body }
                     responseTree.model = jsonTreeBuilder.build(response.body); resHeadersArea.text = response.headers.entries.joinToString("\n") { "${it.key}: ${it.value.joinToString(", ")}" }
                     testResultsArea.text = if (results.isEmpty()) "No tests defined." else results.joinToString("\n") { "${if (it.success) "✅" else "❌"} ${it.assertion.type}: Expected [${it.assertion.expectedValue}], Actual [${it.actualValue}]" }
                     statusLabel.text = "Status: ${response.statusCode} | Time: ${response.durationMs}ms | Tests: ${results.count { it.success }}/${results.size} passed"
